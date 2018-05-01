@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <Elegoo_GFX.h>    // Core graphics library
 #include <Elegoo_TFTLCD.h> // Hardware-specific library
-#include <TimerOne.h>
+#include "TimerThree.h"
 
 int unoCounter = 0;
 
@@ -369,7 +369,6 @@ void statusDataFunc(void* x) {
 
 // Delay for 100ms and update counter/time on peripheral system
 void updateCounter(void) {
-    delay(1000);
     unoCounter++;
 }
 
@@ -377,6 +376,10 @@ void updateCounter(void) {
 void setup(void) {
     // Setup communication
     Serial1.begin(9600);
+
+    // Initialise Timer3
+    Timer3.initialize(1000000);
+    Timer3.attachInterrupt(updateCounter());
     
     // Configure display
         Serial.begin(9600);
