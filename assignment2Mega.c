@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <Elegoo_GFX.h>    // Core graphics library
 #include <Elegoo_TFTLCD.h> // Hardware-specific library
+#include <TimerOne.h>
 
 int unoCounter = 0;
 
