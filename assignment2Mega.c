@@ -315,6 +315,11 @@ void annunciateDataFunc(void* x) {
     // check diastolic
     // DiasPressure > 90 == High blood pressure
     // DiasPressure > 120 == CALL A DOCTOR
+
+            /*  IF PRESSURE CRITICALLY HIGH, need interrupt flashing warnings -----------------------------------
+                User can acknowledge it to DISABLE INTERRUPT
+            */
+
     double normalizedDiastolic = 6 + 1.5 * *dataStruct.diastolicPressRawPtr;
     if (normalizedDiastolic > 90) {
         // TURN TEXT RED
@@ -332,6 +337,11 @@ void annunciateDataFunc(void* x) {
     // pulse rate 
     // HEALTHY PULSE => Between 60 and 100
     // IF PULSE < 30, WARNING
+
+        /*  IF PULSE CRITICALLY LOW, need interrupt flashing warnings -----------------------------------
+            User can acknowledge it to DISABLE INTERRUPT
+        */
+
     int normalizedPulse = 8 + 3 * *dataStruct.pulseRateRawPtr;
     if (normalizedPulse < 60 || normalizedPulse > 100) {
         pulseOutOfRange = 1;
@@ -348,6 +358,10 @@ void annunciateDataFunc(void* x) {
     // battery
     // HEALTHY BATTERY LEVEL => Battery level above 20%
     // //printf("BATT LEVEL: %f\n", batteryLevel);
+
+        /*  IF BATTERY CRITICALLY LOW, need interrupt flashing warnings -----------------------------------
+            User can acknowledge it to DISABLE INTERRUPT
+        */
 
     if (batteryState < 40) {
         battLow = true;
