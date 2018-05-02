@@ -11,12 +11,9 @@
 int unoCounter = 0;
 
 // Define number of tasks
-#define NUM_TASKS 6 //Need to ensure this is accurate else program breaks
+#define NUM_TASKS 6 // Need to ensure this is accurate else program breaks
 
 /* INITIALIZATION - SETUP TFT DISPLAY */
-// The control pins for the LCD can be assigned to any digital or
-// analog pins...but we'll use the analog pins as this allows us to
-// double up the pins with the touch screen (see the TFT paint example).
 #define LCD_CS A3 // Chip Select goes to Analog 3
 #define LCD_CD A2 // Command/Data goes to Analog 2
 #define LCD_WR A1 // LCD Write goes to Analog 1
@@ -34,69 +31,74 @@ int unoCounter = 0;
 #define WHITE   0xFFFF
 
 Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
-// If using the shield, all control and data lines are fixed, and
-// a simpler declaration can optionally be used:
-// Elegoo_TFTLCD tft;
+
 
 /* INITIALIZATION - GLOBAL VARIABLES */
-    // Measurements
-    unsigned int temperatureRaw, systolicPressRaw,
-        diastolicPressRaw, pulseRateRaw;
+// Measurements
+unsigned int temperatureRawBuf[8] = {75};
+unsigned int bloodPressRawBuf[16] = {80};
+unsigned int pulseRateRawBuf[8] = {0};
 
-    // Display
-    double tempCorrected; 
-    double systolicPressCorrected;
-    double diastolicPressCorrected;
-    double pulseRateCorrected;
+// Display
+unsigned char tempCorrectedBuf[8];
+unsigned char bloodPressCorrectedBuf[16];
+unsigned char pulseRateCorrectedBuf[8];
 
-    // Status
-    unsigned short batteryState;
+// Status
+unsigned short batteryState = 200;
 
-    // Alarms
-    unsigned char bpOutOfRange, tempOutOfRange,
-        pulseOutOfRange;
+// Alarms
+unsigned char bpOutOfRange = 0,
+    tempOutOfRange = 0,
+    pulseOutOfRange = 0;
 
-    // Warning
-    bool bpHigh, tempHigh, pulseLow, battLow;
+// Warning
+bool bpHigh = false,
+    tempHigh = false,
+    pulseLow = false,
+    battLow = false;
+
+// TFT Keypad
+unsigned short functionSelect = 0,
+    measurementSelection = 0, alarmAcknowledge = 0;
 
 /* INITIALIZATION - MAKE TASK BLOCK STRUCTURE */
 struct TaskStruct {
     void (*taskFuncPtr)(void*);
     void* taskDataPtr;
+    struct TaskStruct* next;
+    struct TaskStruct* prev;
 }; typedef struct TaskStruct TCB;
 
 
 /* INITIALIZATION - MAKE TASK DATA POINTER BLOCKS */
 struct DataForMeasureStruct {
     unsigned int* temperatureRawPtr;
-    unsigned int* systolicPressRawPtr;
-    unsigned int* diastolicPressRawPtr;
+    unsigned int* bloodPressRawPtr;
     unsigned int* pulseRateRawPtr;
+    unsigned short* measurementSelectionPtr;
 }; typedef struct DataForMeasureStruct MeasureTaskData;
 
 struct DataForComputeStruct {
     unsigned int* temperatureRawPtr;
-    unsigned int* systolicPressRawPtr;
-    unsigned int* diastolicPressRawPtr;
+    unsigned int* bloodPressRawPtr;
     unsigned int* pulseRateRawPtr;
-    double* temperatureCorrectedPtr;
-    double* sysCorrectedPtr;
-    double* diasCorrectedPtr;
-    double* prCorrectedPtr;
+    unsigned char* temperatureCorrectedPtr;
+    unsigned char* bloodPressCorrectedPtr;
+    unsigned char* prCorrectedPtr;
+    unsigned short* measurementSelectionPtr;
 }; typedef struct DataForComputeStruct ComputeTaskData;
 
 struct DataForDisplayStruct {
-    double* temperatureCorrectedPtr;
-    double* sysCorrectedPtr;
-    double* diasCorrectedPtr;
-    double* prCorrectedPtr;
+    unsigned char* temperatureCorrectedPtr;
+    unsigned char* bloodPressCorrectedPtr;
+    unsigned char* prCorrectedPtr;
     unsigned short* batteryStatePtr;
 }; typedef struct DataForDisplayStruct DisplayTaskData;
 
 struct DataForWarningAlarmStruct {
     unsigned int* temperatureRawPtr;
-    unsigned int* systolicPressRawPtr;
-    unsigned int* diastolicPressRawPtr;
+    unsigned int* bloodPressRawPtr;
     unsigned int* pulseRateRawPtr;
     unsigned short* batteryStatePtr;
 }; typedef struct DataForWarningAlarmStruct WarningAlarmTaskData;
@@ -104,6 +106,18 @@ struct DataForWarningAlarmStruct {
 struct DataForStatusStruct {
     unsigned short* batteryStatePtr;
 }; typedef struct DataForStatusStruct StatusTaskData;
+
+struct DataForKeypadStruct {
+    unsigned short* measurementSelectionPtr;
+    unsigned short* alarmAcknowledgePtr;
+}; typedef struct DataForKeypadStruct KeypadTaskData;
+
+struct DataForCommsStruct {
+    unsigned short* measurementSelectionPtr;
+    unsigned char* temperatureCorrectedPtr;
+    unsigned char* bloodPressCorrectedPtr;
+    unsigned char* prCorrectedPtr;
+}; typedef struct DataForCommsStruct CommsTaskData;
 
 // Arrays containing changes in temp and pulse, will be switched
 // when upper/lower limits are hit. 0th elements are called at Even
@@ -137,6 +151,8 @@ ComputeTaskData dataForCompute;
 DisplayTaskData dataForDisplay;
 WarningAlarmTaskData dataForWarningAlarm;
 StatusTaskData dataForStatus;
+KeypadTaskData dataForKeypad;
+CommsTaskData dataForComms;
 
 
 /* INITIALIZATION - FUNCTION DEFINITIONS */
@@ -449,11 +465,6 @@ void setup(void) {
 
     // Set measurements to initial values
     // char* and char values are already set as global variables
-    temperatureRaw = 75;
-    systolicPressRaw = 80;
-    diastolicPressRaw = 80;
-    pulseRateRaw = 50;
-    batteryState = 200;
     bpHigh = false;
     tempHigh = false;
     pulseLow = false;
@@ -462,39 +473,36 @@ void setup(void) {
     // Point data in data structs to correct information
         // Measure
         MeasureTaskData dataForMeasureTMP;
-        dataForMeasureTMP.temperatureRawPtr = &temperatureRaw; 
-        dataForMeasureTMP.systolicPressRawPtr = &systolicPressRaw;
-        dataForMeasureTMP.diastolicPressRawPtr = &diastolicPressRaw;
-        dataForMeasureTMP.pulseRateRawPtr = &pulseRateRaw;
+        dataForMeasureTMP.temperatureRawPtr = temperatureRawBuf; 
+        dataForMeasureTMP.bloodPressRawPtr = bloodPressRawBuf;
+        dataForMeasureTMP.pulseRateRawPtr = pulseRateRawBuf;
+        dataForMeasureTMP.measurementSelectionPtr = &measurementSelection;
         dataForMeasure = dataForMeasureTMP;
 
         // Compute
         ComputeTaskData dataForComputeTMP;
-        dataForComputeTMP.temperatureRawPtr = &temperatureRaw; 
-        dataForComputeTMP.systolicPressRawPtr = &systolicPressRaw;
-        dataForComputeTMP.diastolicPressRawPtr = &diastolicPressRaw;
-        dataForComputeTMP.pulseRateRawPtr = &pulseRateRaw;
-        dataForComputeTMP.temperatureCorrectedPtr = &tempCorrected; // Already a pointer
-        dataForComputeTMP.sysCorrectedPtr = &systolicPressCorrected;
-        dataForComputeTMP.diasCorrectedPtr = &diastolicPressCorrected;
-        dataForComputeTMP.prCorrectedPtr = &pulseRateCorrected;
+        dataForComputeTMP.temperatureRawPtr = temperatureRawBuf;
+        dataForComputeTMP.bloodPressRawPtr = bloodPressRawBuf;
+        dataForComputeTMP.pulseRateRawPtr = pulseRateRawBuf;
+        dataForComputeTMP.temperatureCorrectedPtr = tempCorrectedBuf; // Already a pointer
+        dataForComputeTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
+        dataForComputeTMP.prCorrectedPtr = pulseRateCorrectedBuf;
+        dataForComputeTMP.measurementSelectionPtr = &measurementSelection;
         dataForCompute = dataForComputeTMP;
 
         // Display
         DisplayTaskData dataForDisplayTMP;
-        dataForDisplayTMP.temperatureCorrectedPtr = &tempCorrected; // Already a pointer
-        dataForDisplayTMP.sysCorrectedPtr = &systolicPressCorrected;
-        dataForDisplayTMP.diasCorrectedPtr = &diastolicPressCorrected;
-        dataForDisplayTMP.prCorrectedPtr = &pulseRateCorrected;
+        dataForDisplayTMP.temperatureCorrectedPtr = tempCorrectedBuf; // Already a pointer
+        dataForDisplayTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
+        dataForDisplayTMP.prCorrectedPtr = pulseRateCorrectedBuf;
         dataForDisplayTMP.batteryStatePtr = &batteryState;
         dataForDisplay = dataForDisplayTMP;
 
         // WarningAlarm
         WarningAlarmTaskData dataForWarningAlarmTMP;
-        dataForWarningAlarmTMP.temperatureRawPtr = &temperatureRaw; 
-        dataForWarningAlarmTMP.systolicPressRawPtr = &systolicPressRaw;
-        dataForWarningAlarmTMP.diastolicPressRawPtr = &diastolicPressRaw;
-        dataForWarningAlarmTMP.pulseRateRawPtr = &pulseRateRaw;
+        dataForWarningAlarmTMP.temperatureRawPtr = temperatureRawBuf;
+        dataForWarningAlarmTMP.bloodPressRawPtr = bloodPressRawBuf;
+        dataForWarningAlarmTMP.pulseRateRawPtr = pulseRateRawBuf;
         dataForWarningAlarmTMP.batteryStatePtr = &batteryState;
         dataForWarningAlarm = dataForWarningAlarmTMP;
 
@@ -502,6 +510,20 @@ void setup(void) {
         StatusTaskData dataForStatusTMP;
         dataForStatusTMP.batteryStatePtr = &batteryState;
         dataForStatus = dataForStatusTMP;
+
+        // TFT Keypad
+        KeypadTaskData dataForKeypadTMP;
+        dataForKeypadTMP.measurementSelectionPtr = &measurementSelection;
+        dataForKeypadTMP.alarmAcknowledgePtr = &alarmAcknowledge;
+        dataForKeypad = dataForKeypadTMP;
+
+        // Communications
+        CommsTaskData dataForCommsTMP;
+        dataForCommsTMP.measurementSelectionPtr = &measurementSelection;
+        dataForCommsTMP.temperatureCorrectedPtr = tempCorrectedBuf;
+        dataForCommsTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
+        dataForCommsTMP.prCorrectedPtr = pulseRateCorrectedBuf;
+        dataForComms = dataForCommsTMP;
 
     // Assign values in TCB's
     // Measure
