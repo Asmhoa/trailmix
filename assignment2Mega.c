@@ -6,9 +6,14 @@
 #include <stdbool.h>
 #include <Elegoo_GFX.h>    // Core graphics library
 #include <Elegoo_TFTLCD.h> // Hardware-specific library
-#include "TimerThree.h"
 
-int unoCounter = 0;
+#include <TimerThree.h> // SYSTEM TICK
+#include <TimerOne.h>   // PULSE TICK
+#include <TimerFour.h>  // PULSE INTERVAL TICK
+
+
+// Updated during interrupt service routines
+volatile int unoCounter = 0;
 
 // Define number of tasks
 #define NUM_TASKS 6 // Need to ensure this is accurate else program breaks
@@ -166,17 +171,42 @@ CommsTaskData dataForComms;
 void measureDataFunc(void* data) {
     MeasureTaskData* dataToMeasure = (MeasureTaskData*)data;
     MeasureTaskData dataStruct = *dataToMeasure;
-
-    unsigned int temperatureRaw = *dataStruct.temperatureRawPtr;
-    unsigned int systolicPressRaw = *dataStruct.systolicPressRawPtr;
-    unsigned int diastolicPressRaw = *dataStruct.diastolicPressRawPtr;
-    unsigned int pulseRateRaw = *dataStruct.pulseRateRawPtr;
-
-    if (temperatureRaw < 50) {
+    
+    int i;
+    const int sizeBuf = 8;
+    unsigned int temperatureRawBufTemp[sizeBuf];
+    unsigned int systolicPressRawBuf[sizeBuf];
+    unsigned int diastolicPressRawBuf[sizeBuf];
+    unsigned int pulseRateRawBufTemp[sizeBuf];
+    
+    for(i = 0; i < sizeBuf * 2; i++) {
+        if(i < sizeBuf) {
+            temperatureRawBufTemp[i] = *(dataStruct.temperatureRawPtr + i);
+            systolicPressRawBuf[i] = *(dataStruct.bloodPressRawPtr + i);
+            pulseRateRawBufTemp[i] = *(dataStruct.pulseRateRawPtr + i);
+        } else {
+            diastolicPressRawBuf[i- sizeBuf] = *(dataStruct.bloodPressRawPtr + i);
+        }
+        
+    }
+    
+    int currTemp = temperatureRawBufTemp[0];
+    int currSys = systolicPressRawBuf[0];
+    int currDia = diastolicPressRawBuf[0];
+    int currPr = pulseRateRawBufTemp[0];
+    /*
+    unsigned int systolicPressRawBuf[sizeBuf];
+    memcpy( systolicPressRawBuf, bloodPressRawBufTemp, 8);
+    unsigned int diastolicPressRawBuf[s8;
+    memcpy( diastolicPressRawBuf, bloodPressRawBufTemp + sizeBuf, sizeBuf);
+    */
+    
+    
+    if (currTemp < 50) {
         tempCrossedFifty = true;   
     }
     
-    if (pulseRateRaw < 40) {
+    if (currPr < 40) {
         pulseCrossedForty = true;
     }
     
@@ -195,40 +225,41 @@ void measureDataFunc(void* data) {
         bool even = (unoCounter % 2 == 0);
         
         // Temperature
-        if ((temperatureRaw > 50 || temperatureRaw < 15) && tempCrossedFifty) {
+        if ((currTemp > 50 || currTemp < 15) && tempCrossedFifty) {
             int temp = tempChange[0];
             tempChange[0] = -1 * tempChange[1];
             tempChange[1] = -1 * temp;
         }
+        
         if (even) {
-            temperatureRaw += tempChange[0];
+            currTemp += tempChange[0];
         } else {
-            temperatureRaw += tempChange[1];
+            currTemp += tempChange[1];
         }
         
         // Systolic: Resets to 80 at the end of sys-dias cycle
-        if (systolicPressRaw <= 100) {
+        if (currSys <= 100) {
             if (even) {
-                systolicPressRaw += 3;
+                currSys += 3;
             } else {
-                systolicPressRaw--;
+                currSys--;
             }
         } else {
             systolicComplete = true;
             if(diastolicComplete) {
-                systolicPressRaw = 20;
-                diastolicPressRaw = 80;
+                currSys = 20;
+                currDia = 80;
                 diastolicComplete = false;
                 systolicComplete = false;
             }
         }
         
         // Diastolic: Resets to 80 at the end of sys-dias cycle
-        if (diastolicPressRaw >= 40) {
+        if (currDia >= 40) {
             if (even) {
-                diastolicPressRaw -= 2;
+                currDia -= 2;
             } else {
-                diastolicPressRaw++;
+                currDia++;
             }
         } else {
             diastolicComplete = true;
@@ -246,11 +277,40 @@ void measureDataFunc(void* data) {
         } else {
             pulseRateRaw += pulseChange[1];
         }
+        
+        float low = currPr * 0.85;
+        float high = currPr * 1.15;
 
-        *dataStruct.temperatureRawPtr = temperatureRaw;
-        *dataStruct.systolicPressRawPtr = systolicPressRaw;
-        *dataStruct.diastolicPressRawPtr = diastolicPressRaw;
-        *dataStruct.pulseRateRawPtr = pulseRateRaw;
+        if((prMeasured < low ) || (prMeasured > high)) {
+            currPr = prMeasured;
+        }
+        
+        // Update the buffer
+        for(i = 0; i < sizeBuf - 1; i++) {
+            temperatureRawBufTemp[i + 1] = temperatureRawBufTemp[i];
+            systolicPressRawBuf[i + 1] = temperatureRawBufTemp[i];
+            diastolicPressRawBuf[i + 1] = diastolicPressRawBuf[i];
+            if(currPr != pulseRateRawBufTemp[0]) {
+                pulseRateRawBufTemp[i + 1] = pulseRateRawBufTemp[i];
+            }
+        }
+        temperatureRawBufTemp[0] = currTemp;
+        systolicPressRawBuf[0] = currSys;
+        diastolicPressRawBuf[0] = currDia;
+        pulseRateRawBufTemp[0] = currPr;
+        
+        // Update the data pointers
+        for(i = 0; i < sizeBuf * 2; i++) {
+            if(i < sizeBuf) {
+                *(dataStruct.temperatureRawPtr + i) = temperatureRawBufTemp[i];
+                *(dataStruct.bloodPressRawPtr + i) = systolicPressRawBuf[i];
+                *(dataStruct.pulseRateRawPtr + i) = pulseRateRawBufTemp[i];
+            } else {
+                *(dataStruct.bloodPressRawPtr + i) = diastolicPressRawBuf[i- sizeBuf];
+            }
+
+        }
+
     }
 }
 
@@ -535,6 +595,10 @@ void setup(void) {
 
 
 
+    
+    
+    
+    
     // Assign values in TCB's
     // Measure
     TCB MeasureTaskTMP; // Getting an error if I try to use MeasureTask directly
