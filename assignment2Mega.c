@@ -35,9 +35,9 @@ Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
 /* INITIALIZATION - GLOBAL VARIABLES */
 // Measurements
-unsigned int temperatureRawBuf[8] = {75};
-unsigned int bloodPressRawBuf[16] = {80};
-unsigned int pulseRateRawBuf[8] = {0};
+unsigned int temperatureRawBuf[8] = {75, 75, 75, 75, 75, 75, 75, 75};
+unsigned int bloodPressRawBuf[16] = {80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80};
+unsigned int pulseRateRawBuf[8] = {8, 8, 8, 8, 8, 8, 8, 8};
 
 // Display
 unsigned char tempCorrectedBuf[8];
@@ -80,33 +80,34 @@ TCB* currPointer = NULL;
 
 /* INITIALIZATION - MAKE TASK DATA POINTER BLOCKS */
 struct DataForMeasureStruct {
-    unsigned int* temperatureRawPtr;
-    unsigned int* bloodPressRawPtr;
-    unsigned int* pulseRateRawPtr;
+    (*ptr)[5]
+    unsigned int (*temperatureRawPtr)[8];
+    unsigned int (*bloodPressRawPtr)[16];
+    unsigned int (*pulseRateRawPtr)[8];
     unsigned short* measurementSelectionPtr;
 }; typedef struct DataForMeasureStruct MeasureTaskData;
 
 struct DataForComputeStruct {
-    unsigned int* temperatureRawPtr;
-    unsigned int* bloodPressRawPtr;
-    unsigned int* pulseRateRawPtr;
-    unsigned char* temperatureCorrectedPtr;
-    unsigned char* bloodPressCorrectedPtr;
-    unsigned char* prCorrectedPtr;
+    unsigned int (*temperatureRawPtr)[8];
+    unsigned int (*bloodPressRawPtr)[16];
+    unsigned int (*pulseRateRawPtr)[8];
+    unsigned char (*temperatureCorrectedPtr)[8];
+    unsigned char (*bloodPressCorrectedPtr)[16];
+    unsigned char (*prCorrectedPtr)[8];
     unsigned short* measurementSelectionPtr;
 }; typedef struct DataForComputeStruct ComputeTaskData;
 
 struct DataForDisplayStruct {
-    unsigned char* temperatureCorrectedPtr;
-    unsigned char* bloodPressCorrectedPtr;
-    unsigned char* prCorrectedPtr;
+    unsigned char (*temperatureCorrectedPtr)[8];
+    unsigned char (*bloodPressCorrectedPtr)[16];
+    unsigned char (*prCorrectedPtr)[8];
     unsigned short* batteryStatePtr;
 }; typedef struct DataForDisplayStruct DisplayTaskData;
 
 struct DataForWarningAlarmStruct {
-    unsigned int* temperatureRawPtr;
-    unsigned int* bloodPressRawPtr;
-    unsigned int* pulseRateRawPtr;
+    unsigned int (*temperatureRawPtr)[8];
+    unsigned int (*bloodPressRawPtr)[16];
+    unsigned int (*pulseRateRawPtr)[8];
     unsigned short* batteryStatePtr;
 }; typedef struct DataForWarningAlarmStruct WarningAlarmTaskData;
 
@@ -480,36 +481,36 @@ void setup(void) {
     // Point data in data structs to correct information
         // Measure
         MeasureTaskData dataForMeasureTMP;
-        dataForMeasureTMP.temperatureRawPtr = temperatureRawBuf; 
-        dataForMeasureTMP.bloodPressRawPtr = bloodPressRawBuf;
-        dataForMeasureTMP.pulseRateRawPtr = pulseRateRawBuf;
+        dataForMeasureTMP.temperatureRawPtr = &temperatureRawBuf; 
+        dataForMeasureTMP.bloodPressRawPtr = &bloodPressRawBuf;
+        dataForMeasureTMP.pulseRateRawPtr = &pulseRateRawBuf;
         dataForMeasureTMP.measurementSelectionPtr = &measurementSelection;
         dataForMeasure = dataForMeasureTMP;
 
         // Compute
         ComputeTaskData dataForComputeTMP;
-        dataForComputeTMP.temperatureRawPtr = temperatureRawBuf;
-        dataForComputeTMP.bloodPressRawPtr = bloodPressRawBuf;
-        dataForComputeTMP.pulseRateRawPtr = pulseRateRawBuf;
-        dataForComputeTMP.temperatureCorrectedPtr = tempCorrectedBuf; // Already a pointer
-        dataForComputeTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
-        dataForComputeTMP.prCorrectedPtr = pulseRateCorrectedBuf;
+        dataForComputeTMP.temperatureRawPtr = &temperatureRawBuf;
+        dataForComputeTMP.bloodPressRawPtr = &bloodPressRawBuf;
+        dataForComputeTMP.pulseRateRawPtr = &pulseRateRawBuf;
+        dataForComputeTMP.temperatureCorrectedPtr = &tempCorrectedBuf; // Already a pointer
+        dataForComputeTMP.bloodPressCorrectedPtr = &bloodPressCorrectedBuf;
+        dataForComputeTMP.prCorrectedPtr = &pulseRateCorrectedBuf;
         dataForComputeTMP.measurementSelectionPtr = &measurementSelection;
         dataForCompute = dataForComputeTMP;
 
         // Display
         DisplayTaskData dataForDisplayTMP;
-        dataForDisplayTMP.temperatureCorrectedPtr = tempCorrectedBuf; // Already a pointer
-        dataForDisplayTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
-        dataForDisplayTMP.prCorrectedPtr = pulseRateCorrectedBuf;
+        dataForDisplayTMP.temperatureCorrectedPtr = &tempCorrectedBuf; // Already a pointer
+        dataForDisplayTMP.bloodPressCorrectedPtr = &bloodPressCorrectedBuf;
+        dataForDisplayTMP.prCorrectedPtr = &pulseRateCorrectedBuf;
         dataForDisplayTMP.batteryStatePtr = &batteryState;
         dataForDisplay = dataForDisplayTMP;
 
         // WarningAlarm
         WarningAlarmTaskData dataForWarningAlarmTMP;
-        dataForWarningAlarmTMP.temperatureRawPtr = temperatureRawBuf;
-        dataForWarningAlarmTMP.bloodPressRawPtr = bloodPressRawBuf;
-        dataForWarningAlarmTMP.pulseRateRawPtr = pulseRateRawBuf;
+        dataForWarningAlarmTMP.temperatureRawPtr = &temperatureRawBuf;
+        dataForWarningAlarmTMP.bloodPressRawPtr = &bloodPressRawBuf;
+        dataForWarningAlarmTMP.pulseRateRawPtr = &pulseRateRawBuf;
         dataForWarningAlarmTMP.batteryStatePtr = &batteryState;
         dataForWarningAlarm = dataForWarningAlarmTMP;
 
@@ -523,6 +524,8 @@ void setup(void) {
         dataForKeypadTMP.measurementSelectionPtr = &measurementSelection;
         dataForKeypadTMP.alarmAcknowledgePtr = &alarmAcknowledge;
         dataForKeypad = dataForKeypadTMP;
+
+
 
         // Communications
         CommsTaskData dataForCommsTMP;
@@ -676,7 +679,7 @@ void append(TCB** headRef, TCB* newNode) {
 }
 
 // Add within list
-void insertAfter(TCB* prevNodeRef, TCB* newNode) {
+void insertAfterNode(TCB* prevNodeRef, TCB* newNode) {
     /*1. check if the given prev_node is NULL */
     if (prevNodeRef == NULL) {
         printf("the given previous node cannot be NULL");
