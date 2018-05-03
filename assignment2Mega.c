@@ -71,6 +71,13 @@ struct TaskStruct {
 }; typedef struct TaskStruct TCB;
 
 
+// HEAD OF TCB DOUBLE LINKED LIST 
+TCB* linkedListHead = NULL;
+// Traversing Pointer
+TCB* currPointer = NULL;
+
+
+
 /* INITIALIZATION - MAKE TASK DATA POINTER BLOCKS */
 struct DataForMeasureStruct {
     unsigned int* temperatureRawPtr;
@@ -525,49 +532,75 @@ void setup(void) {
         dataForCommsTMP.prCorrectedPtr = pulseRateCorrectedBuf;
         dataForComms = dataForCommsTMP;
 
+
+
+
     // Assign values in TCB's
     // Measure
     TCB MeasureTaskTMP; // Getting an error if I try to use MeasureTask directly
     MeasureTaskTMP.taskFuncPtr = &measureDataFunc;
     MeasureTaskTMP.taskDataPtr = &dataForMeasure;
+    MeasureTaskTMP.next = NULL;
+    MeasureTaskTMP.prev = NULL;
     MeasureTask = MeasureTaskTMP;
 
     // Compute
     TCB ComputeTaskTMP;
     ComputeTaskTMP.taskFuncPtr = &computeDataFunc;
     ComputeTaskTMP.taskDataPtr = &dataForCompute;
+    ComputeTaskTMP.next = NULL;
+    ComputeTaskTMP.prev = NULL;
     ComputeTask = ComputeTaskTMP;
     
     // Display
     TCB DisplayTaskTMP;
     DisplayTaskTMP.taskFuncPtr = &displayDataFunc;
     DisplayTaskTMP.taskDataPtr = &dataForDisplay;
+    DisplayTaskTMP.next = NULL;
+    DisplayTaskTMP.prev = NULL;
     DisplayTask = DisplayTaskTMP;
 
     // Warning/Alarm
     TCB AnnunciateTaskTMP;
     AnnunciateTaskTMP.taskFuncPtr = &annunciateDataFunc;
     AnnunciateTaskTMP.taskDataPtr = &dataForWarningAlarm;
+    AnnunciateTaskTMP.next = NULL;
+    AnnunciateTaskTMP.prev = NULL;
     AnnunciateTask = AnnunciateTaskTMP;
 
     // Status
     TCB StatusTaskTMP;
     StatusTaskTMP.taskFuncPtr = &statusDataFunc;
     StatusTaskTMP.taskDataPtr = &dataForStatus;
+    StatusTaskTMP.next = NULL;
+    StatusTaskTMP.prev = NULL;
     StatusTask = StatusTaskTMP;
 
     // NULL TCB
     TCB NullTaskTMP;
     NullTaskTMP.taskFuncPtr = NULL;
     NullTaskTMP.taskDataPtr = NULL;
+    NullTaskTMP.next = NULL;
+    NullTaskTMP.prev = NULL;
     NullTask = NullTaskTMP;
 
+
+    // Head is the start of the empty doubly linkedlist
+    // Adding each task to the Double Linked List
+    append(&linkedListHead, &MeasureTask);
+    append(&linkedListHead, &ComputeTask);
+    append(&linkedListHead, &DisplayTask);
+    append(&linkedListHead, &AnnunciateTask);
+    append(&linkedListHead, &StatusTask);
+
+    currPointer = linkedListHead;
 }
 
+// Modify this to traverse linkedList instead
 void loop(void) {
     unsigned long start = micros(); 
     
-    /* SCHEDULE */
+    /* SCHEDULE 
     TCB tasksArray[NUM_TASKS];
     tasksArray[0] = MeasureTask;
     tasksArray[1] = ComputeTask;
@@ -578,6 +611,118 @@ void loop(void) {
 
     for(int i = 0; i < NUM_TASKS; i++) { // QUEUE
         tasksArray[i].taskFuncPtr(tasksArray[i].taskDataPtr);
+    }*/
+
+    // LinkedList traversal
+    *currPointer.taskFuncPtr(*currPointer.taskDataPtr);
+
+    if (currPointer->next == NULL) {
+        currPointer = linkedListHead;
+    } else {
+        currPointer = currPointer->next;
     }
-    updateCounter();
+    //updateCounter();
 }
+
+
+
+// ------------------------------------Double Linked List Fns-------------------------------
+
+// Add to front
+void push(TCB** headRef, TCB* newNode) {
+  
+    /* 1. Make next of new node as head and previous as NULL */
+    newNode->next = (*headRef);
+    newNode->prev = NULL;
+ 
+    /* 2. change prev of head node to new node */
+    if((*headRef) !=  NULL) {
+      (*headRef)->prev = newNode ;
+    }
+ 
+    /* 3. move the head to point to the new node */
+    (*headRef) = newNode;
+}
+
+// Add to back
+void append(TCB** headRef, TCB* newNode) {
+    // Set up second pointer to be moved to the end of the list, will be used in 3
+    TCB* lastRef = *headRef;  
+  
+    /* 1. This new node is going to be the last node, so
+          make next of it as NULL*/
+    newNode->next = NULL;
+ 
+    /* 2. If the Linked List is empty, then make the new
+          node as head */
+    if (*headRef == NULL) {
+        newNode->prev = NULL;
+        *headRef = newNode;
+        return;
+    }
+ 
+    /* 3. Else traverse till the last node */
+    while (lastRef->next != NULL) {
+        lastRef = lastRef->next;
+    }
+ 
+    /* 4. Change the next of last node */
+    lastRef->next = newNode;
+ 
+    /* 5. Make last node as previous of new node */
+    newNode->prev = lastRef;
+ 
+    return;
+}
+
+// Add within list
+void insertAfter(TCB* prevNodeRef, TCB* newNode) {
+    /*1. check if the given prev_node is NULL */
+    if (prevNodeRef == NULL) {
+        printf("the given previous node cannot be NULL");
+        return;
+    }
+  
+    /* 2. Make next of new node as next of prev_node */
+    newNode->next = prevNodeRef->next;
+ 
+    /* 3. Make the next of prev_node as new_node */
+    prevNodeRef->next = newNode;
+ 
+    /* 4. Make prev_node as previous of new_node */
+    newNode->prev = prevNodeRef;
+ 
+    /* 5. Change previous of new_node's next node */
+    if (newNode->next != NULL) {
+      newNode->next->prev = newNode;
+    }
+}
+
+// Delete
+/* Function to delete a node in a Doubly Linked List.
+   head_ref --> pointer to head node pointer.
+   del  -->  pointer to node to be deleted. */
+void deleteNode(TCB** headRef, TCB* del) {
+  /* base case */
+  if (*headRef == NULL || del == NULL)
+    return;
+ 
+  /* If node to be deleted is head node */
+  if (*headRef == del) {
+    *headRef = del->next;
+  }
+ 
+  /* Change next only if node to be deleted is NOT the last node */
+  if (del->next != NULL) {
+    del->next->prev = del->prev;
+  }
+ 
+  /* Change prev only if node to be deleted is NOT the first node */
+  if (del->prev != NULL) {
+    del->prev->next = del->next;  
+  }   
+ 
+  /* Finally, free the memory occupied by del*/
+  free(del);
+  return;
+}     
