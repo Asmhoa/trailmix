@@ -353,12 +353,6 @@ void computeDataFunc(void* x) {
 }
 
 
-/* 
-    bool bpHigh = false,
-    tempHigh = false,
-    pulseLow = false,
-    battLow = false;
-*/
 void displayDataFunc(void* x) {
     if (unoCounter % 5 == 0) { // Every 5 seconds
         DisplayTaskData* data = (DisplayTaskData*)x;
@@ -366,21 +360,27 @@ void displayDataFunc(void* x) {
         tft.setTextSize(1);
         tft.fillScreen(BLACK);
         tft.setCursor(0, 0);
-        
+
         // Temperature
         tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
-        tempHigh ? tft.setTextColor(RED) : tft.setTextColor(ORANGE);
+        if (tempHight) {
+            ft.setTextColor(RED); // Add acknowledgement event??
+        } 
         tft.println("Temperature: " + (String)*dataStruct.temperatureCorrectedPtr + " C");
 
         // Blood Pressure
         bpOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
-        bpHigh ? tft.setTextColor(RED) : tft.setTextColor(ORANGE); 
+        if (bpHigh) { 
+            tft.setTextColor(RED); // Add acknowledgement event??
+        }
         tft.println("Systolic pressure: " + (String)*dataStruct.sysCorrectedPtr + " mm Hg");
         tft.println("Diastolic pressure: " + (String)*dataStruct.diasCorrectedPtr + " mm Hg");
 
         // Pulse
         pulseOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-        pulseLow ? tft.setTextColor(RED) : tft.setTextColor(ORANGE);
+        if (pulseLow) { 
+            tft.setTextColor(RED); // Add acknowledgement event??
+        }
         tft.println("Pulse rate: " + (String)*dataStruct.prCorrectedPtr + " BPM");
 
         // Battery
@@ -401,6 +401,8 @@ void annunciateDataFunc(void* x) {
         tempOutOfRange = 1;
         if (normalizedTemp > 40) {
             tempHigh = true;
+            // Trigger alarm event
+
         } else {
             tempHigh = false;
         }
@@ -419,6 +421,8 @@ void annunciateDataFunc(void* x) {
         bpOutOfRange = 1;
         if (normalizedSystolic > 160) {
             bpHigh = true;
+            // Trigger alarm event
+
         } else {
             bpHigh = false;
         }
@@ -427,13 +431,9 @@ void annunciateDataFunc(void* x) {
         bpHigh = false;
     }
     
-    // check diastolic
-    // DiasPressure > 90 == High blood pressure
-    // DiasPressure > 120 == CALL A DOCTOR
-
-            /*  IF PRESSURE CRITICALLY HIGH, need interrupt flashing warnings -----------------------------------
-                User can acknowledge it to DISABLE INTERRUPT
-            */
+    /*  IF PRESSURE CRITICALLY HIGH, need interrupt flashing warnings -----------------------------------
+        User can acknowledge it to DISABLE INTERRUPT
+    */
 
     double normalizedDiastolic = 6 + 1.5 * *dataStruct.diastolicPressRawPtr;
     if (normalizedDiastolic > 90) {
@@ -441,6 +441,8 @@ void annunciateDataFunc(void* x) {
         bpOutOfRange = 1;
         if (normalizedDiastolic > 120) {
             bpHigh = true;
+            // Trigger alarm event
+
         } else {
             bpHigh = false;
         }
@@ -462,6 +464,8 @@ void annunciateDataFunc(void* x) {
         pulseOutOfRange = 1;
         if (normalizedPulse < 30) {
             pulseLow = true;
+            // Trigger alarm event
+
         } else {
             pulseLow = false;
         }
@@ -480,7 +484,8 @@ void annunciateDataFunc(void* x) {
 
     if (batteryState < 40) {
         battLow = true;
-        // printf("LOW BATT: %f\n", batteryLevel);
+        // Trigger alarm event
+
     } else {
         battLow = false;
     }
