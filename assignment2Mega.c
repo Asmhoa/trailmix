@@ -190,18 +190,24 @@ void measureDataFunc(void* data) {
         
     }
     
+    // NEED TO SEND THESE FOUR NUMBERS OVER TO UNO ----------------------------------------------------------
     int currTemp = temperatureRawBufTemp[0];
     int currSys = systolicPressRawBuf[0];
     int currDia = diastolicPressRawBuf[0];
     int currPr = pulseRateRawBufTemp[0];
+    
+
+    // THIS IS WHERE COMMUNICATION SHOULD HAPPEN ------------------------------------------------------------
+    // SEND REQUEST MESSAGE
+
+    // |/ UNO ---------------------------------------------------------------------------------------------------
     /*
     unsigned int systolicPressRawBuf[sizeBuf];
     memcpy( systolicPressRawBuf, bloodPressRawBufTemp, 8);
     unsigned int diastolicPressRawBuf[s8;
     memcpy( diastolicPressRawBuf, bloodPressRawBufTemp + sizeBuf, sizeBuf);
     */
-    
-    
+
     if (currTemp < 50) {
         tempCrossedFifty = true;   
     }
@@ -284,6 +290,13 @@ void measureDataFunc(void* data) {
         if((prMeasured < low ) || (prMeasured > high)) {
             currPr = prMeasured;
         }
+
+        // ^ UNO ------------------------------------------------------------------------------------------
+
+        // RECEIVE RESPONSE MESSAGE:
+        // 4 NEW CURR VALUES SHOULD BE RETURNED TO MEGA AT THIS POINT,
+        // UPDATE CURR VALUES
+
         
         // Update the buffer
         for(i = 0; i < sizeBuf - 1; i++) {
@@ -294,6 +307,7 @@ void measureDataFunc(void* data) {
                 pulseRateRawBufTemp[i + 1] = pulseRateRawBufTemp[i];
             }
         }
+
         temperatureRawBufTemp[0] = currTemp;
         systolicPressRawBuf[0] = currSys;
         diastolicPressRawBuf[0] = currDia;
@@ -338,6 +352,13 @@ void computeDataFunc(void* x) {
     }
 }
 
+
+/* 
+    bool bpHigh = false,
+    tempHigh = false,
+    pulseLow = false,
+    battLow = false;
+*/
 void displayDataFunc(void* x) {
     if (unoCounter % 5 == 0) { // Every 5 seconds
         DisplayTaskData* data = (DisplayTaskData*)x;
@@ -345,13 +366,24 @@ void displayDataFunc(void* x) {
         tft.setTextSize(1);
         tft.fillScreen(BLACK);
         tft.setCursor(0, 0);
-        tempOutOfRange ? tft.setTextColor(RED) : tft.setTextColor(GREEN);
+        
+        // Temperature
+        tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
+        tempHigh ? tft.setTextColor(RED) : tft.setTextColor(ORANGE);
         tft.println("Temperature: " + (String)*dataStruct.temperatureCorrectedPtr + " C");
-        bpOutOfRange ? tft.setTextColor(RED) : tft.setTextColor(GREEN);        
+
+        // Blood Pressure
+        bpOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
+        bpHigh ? tft.setTextColor(RED) : tft.setTextColor(ORANGE); 
         tft.println("Systolic pressure: " + (String)*dataStruct.sysCorrectedPtr + " mm Hg");
         tft.println("Diastolic pressure: " + (String)*dataStruct.diasCorrectedPtr + " mm Hg");
-        pulseOutOfRange ? tft.setTextColor(RED) : tft.setTextColor(GREEN);        
+
+        // Pulse
+        pulseOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
+        pulseLow ? tft.setTextColor(RED) : tft.setTextColor(ORANGE);
         tft.println("Pulse rate: " + (String)*dataStruct.prCorrectedPtr + " BPM");
+
+        // Battery
         battLow ? tft.setTextColor(RED) : tft.setTextColor(GREEN);
         tft.println("Battery: " + (String)*dataStruct.batteryStatePtr);
     }
