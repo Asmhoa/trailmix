@@ -176,13 +176,13 @@ CommsTaskData dataForComms;
 /* INITIALIZATION - FUNCTION DEFINITIONS */
 void requestMessage(String taskID, String funcToRun, void* data) {
     if(taskID.equals("measureDataFunc")) {
-        int* dataToSend = (int*) data;
-        Serial.print(START_MESSAGE + taskID + END_TERM + funcToRun
-            + END_TERM);
-        for(int i = 0; i < 4; i++) {
-            Serial.print(*(dataToSend + i) + END_TERM);
-        }
-        Serial.print(END_MESSAGE);
+        // int* dataToSend = (int*) data;
+        // Serial.print(START_MESSAGE + taskID + END_TERM + funcToRun
+        //     + END_TERM);
+        // for(int i = 0; i < 4; i++) {
+        //     Serial.print(*(dataToSend + i) + END_TERM);
+        // }
+        // Serial.print(END_MESSAGE);
     } else if (taskID.equals("computeDataFunc")) {
 
     } else if (taskID.equals("annunciateDataFunc")) {
@@ -537,7 +537,7 @@ void updateCounter(void) {
 /* INITIALIZATION */
 void setup(void) {
     // Setup communication
-    Serial1.begin(9600);
+    // Serial1.begin(9600);
 
     // Initialise Timer3
     Timer3.initialize(1000000);
@@ -545,55 +545,55 @@ void setup(void) {
     
     // Configure display
     Serial.begin(9600);
-    // Serial.println(F("TFT LCD test"));
+    Serial.println(F("TFT LCD test"));
 
 
-    // #ifdef USE_Elegoo_SHIELD_PINOUT
-    //     Serial.println(F("Using Elegoo 2.4\" TFT Arduino Shield Pinout"));
-    // #else
-    //     Serial.println(F("Using Elegoo 2.4\" TFT Breakout Board Pinout"));
-    // #endif
+    #ifdef USE_Elegoo_SHIELD_PINOUT
+        Serial.println(F("Using Elegoo 2.4\" TFT Arduino Shield Pinout"));
+    #else
+        Serial.println(F("Using Elegoo 2.4\" TFT Breakout Board Pinout"));
+    #endif
 
-    // Serial.print("TFT size is "); Serial.print(tft.width()); Serial.print("x"); Serial.println(tft.height());
+    Serial.print("TFT size is "); Serial.print(tft.width()); Serial.print("x"); Serial.println(tft.height());
 
-    // tft.reset();
+    tft.reset();
 
-    // uint16_t identifier = tft.readID();
-    // if(identifier == 0x9325) {
-    //     Serial.println(F("Found ILI9325 LCD driver"));
-    // } else if(identifier == 0x9328) {
-    //     Serial.println(F("Found ILI9328 LCD driver"));
-    // } else if(identifier == 0x4535) {
-    //     Serial.println(F("Found LGDP4535 LCD driver"));
-    // }else if(identifier == 0x7575) {
-    //     Serial.println(F("Found HX8347G LCD driver"));
-    // } else if(identifier == 0x9341) {
-    //     Serial.println(F("Found ILI9341 LCD driver"));
-    // } else if(identifier == 0x8357) {
-    //     Serial.println(F("Found HX8357D LCD driver"));
-    // } else if(identifier==0x0101)
-    // {     
-    //     identifier=0x9341;
-    //     Serial.println(F("Found 0x9341 LCD driver"));
-    // }
-    // else if(identifier==0x1111)
-    // {     
-    //     identifier=0x9328;
-    //     Serial.println(F("Found 0x9328 LCD driver"));
-    // }
-    // else {
-    //     Serial.print(F("Unknown LCD driver chip: "));
-    //     Serial.println(identifier, HEX);
-    //     Serial.println(F("If using the Elegoo 2.8\" TFT Arduino shield, the line:"));
-    //     Serial.println(F("  #define USE_Elegoo_SHIELD_PINOUT"));
-    //     Serial.println(F("should appear in the library header (Elegoo_TFT.h)."));
-    //     Serial.println(F("If using the breakout board, it should NOT be #defined!"));
-    //     Serial.println(F("Also if using the breakout, double-check that all wiring"));
-    //     Serial.println(F("matches the tutorial."));
-    //     identifier=0x9328;
+    uint16_t identifier = tft.readID();
+    if(identifier == 0x9325) {
+        Serial.println(F("Found ILI9325 LCD driver"));
+    } else if(identifier == 0x9328) {
+        Serial.println(F("Found ILI9328 LCD driver"));
+    } else if(identifier == 0x4535) {
+        Serial.println(F("Found LGDP4535 LCD driver"));
+    }else if(identifier == 0x7575) {
+        Serial.println(F("Found HX8347G LCD driver"));
+    } else if(identifier == 0x9341) {
+        Serial.println(F("Found ILI9341 LCD driver"));
+    } else if(identifier == 0x8357) {
+        Serial.println(F("Found HX8357D LCD driver"));
+    } else if(identifier==0x0101)
+    {     
+        identifier=0x9341;
+        Serial.println(F("Found 0x9341 LCD driver"));
+    }
+    else if(identifier==0x1111)
+    {     
+        identifier=0x9328;
+        Serial.println(F("Found 0x9328 LCD driver"));
+    }
+    else {
+        Serial.print(F("Unknown LCD driver chip: "));
+        Serial.println(identifier, HEX);
+        Serial.println(F("If using the Elegoo 2.8\" TFT Arduino shield, the line:"));
+        Serial.println(F("  #define USE_Elegoo_SHIELD_PINOUT"));
+        Serial.println(F("should appear in the library header (Elegoo_TFT.h)."));
+        Serial.println(F("If using the breakout board, it should NOT be #defined!"));
+        Serial.println(F("Also if using the breakout, double-check that all wiring"));
+        Serial.println(F("matches the tutorial."));
+        identifier=0x9328;
     
-    // }
-    // tft.begin(identifier);
+    }
+    tft.begin(identifier);
 
     // Set measurements to initial values
     // char* and char values are already set as global variables
@@ -603,66 +603,59 @@ void setup(void) {
     battLow = false;
 
     // Point data in data structs to correct information
-        // Measure
-        MeasureTaskData dataForMeasureTMP;
-        dataForMeasureTMP.temperatureRawPtr = temperatureRawBuf; 
-        dataForMeasureTMP.bloodPressRawPtr = bloodPressRawBuf;
-        dataForMeasureTMP.pulseRateRawPtr = pulseRateRawBuf;
-        dataForMeasureTMP.measurementSelectionPtr = &measurementSelection;
-        dataForMeasure = dataForMeasureTMP;
+    // Measure
+    MeasureTaskData dataForMeasureTMP;
+    dataForMeasureTMP.temperatureRawPtr = temperatureRawBuf; 
+    dataForMeasureTMP.bloodPressRawPtr = bloodPressRawBuf;
+    dataForMeasureTMP.pulseRateRawPtr = pulseRateRawBuf;
+    dataForMeasureTMP.measurementSelectionPtr = &measurementSelection;
+    dataForMeasure = dataForMeasureTMP;
 
-        // Compute
-        ComputeTaskData dataForComputeTMP;
-        dataForComputeTMP.temperatureRawPtr = temperatureRawBuf;
-        dataForComputeTMP.bloodPressRawPtr = bloodPressRawBuf;
-        dataForComputeTMP.pulseRateRawPtr = pulseRateRawBuf;
-        dataForComputeTMP.temperatureCorrectedPtr = tempCorrectedBuf; // Already a pointer
-        dataForComputeTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
-        dataForComputeTMP.prCorrectedPtr = pulseRateCorrectedBuf;
-        dataForComputeTMP.measurementSelectionPtr = &measurementSelection;
-        dataForCompute = dataForComputeTMP;
+    // Compute
+    ComputeTaskData dataForComputeTMP;
+    dataForComputeTMP.temperatureRawPtr = temperatureRawBuf;
+    dataForComputeTMP.bloodPressRawPtr = bloodPressRawBuf;
+    dataForComputeTMP.pulseRateRawPtr = pulseRateRawBuf;
+    dataForComputeTMP.temperatureCorrectedPtr = tempCorrectedBuf; // Already a pointer
+    dataForComputeTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
+    dataForComputeTMP.prCorrectedPtr = pulseRateCorrectedBuf;
+    dataForComputeTMP.measurementSelectionPtr = &measurementSelection;
+    dataForCompute = dataForComputeTMP;
 
-        // Display
-        DisplayTaskData dataForDisplayTMP;
-        dataForDisplayTMP.temperatureCorrectedPtr = tempCorrectedBuf; // Already a pointer
-        dataForDisplayTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
-        dataForDisplayTMP.prCorrectedPtr = pulseRateCorrectedBuf;
-        dataForDisplayTMP.batteryStatePtr = &batteryState;
-        dataForDisplay = dataForDisplayTMP;
+    // Display
+    DisplayTaskData dataForDisplayTMP;
+    dataForDisplayTMP.temperatureCorrectedPtr = tempCorrectedBuf; // Already a pointer
+    dataForDisplayTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
+    dataForDisplayTMP.prCorrectedPtr = pulseRateCorrectedBuf;
+    dataForDisplayTMP.batteryStatePtr = &batteryState;
+    dataForDisplay = dataForDisplayTMP;
 
-        // WarningAlarm
-        WarningAlarmTaskData dataForWarningAlarmTMP;
-        dataForWarningAlarmTMP.temperatureRawPtr = temperatureRawBuf;
-        dataForWarningAlarmTMP.bloodPressRawPtr = bloodPressRawBuf;
-        dataForWarningAlarmTMP.pulseRateRawPtr = pulseRateRawBuf;
-        dataForWarningAlarmTMP.batteryStatePtr = &batteryState;
-        dataForWarningAlarm = dataForWarningAlarmTMP;
+    // WarningAlarm
+    WarningAlarmTaskData dataForWarningAlarmTMP;
+    dataForWarningAlarmTMP.temperatureRawPtr = temperatureRawBuf;
+    dataForWarningAlarmTMP.bloodPressRawPtr = bloodPressRawBuf;
+    dataForWarningAlarmTMP.pulseRateRawPtr = pulseRateRawBuf;
+    dataForWarningAlarmTMP.batteryStatePtr = &batteryState;
+    dataForWarningAlarm = dataForWarningAlarmTMP;
 
-        // Status
-        StatusTaskData dataForStatusTMP;
-        dataForStatusTMP.batteryStatePtr = &batteryState;
-        dataForStatus = dataForStatusTMP;
+    // Status
+    StatusTaskData dataForStatusTMP;
+    dataForStatusTMP.batteryStatePtr = &batteryState;
+    dataForStatus = dataForStatusTMP;
 
-        // TFT Keypad
-        KeypadTaskData dataForKeypadTMP;
-        dataForKeypadTMP.measurementSelectionPtr = &measurementSelection;
-        dataForKeypadTMP.alarmAcknowledgePtr = &alarmAcknowledge;
-        dataForKeypad = dataForKeypadTMP;
+    // TFT Keypad
+    KeypadTaskData dataForKeypadTMP;
+    dataForKeypadTMP.measurementSelectionPtr = &measurementSelection;
+    dataForKeypadTMP.alarmAcknowledgePtr = &alarmAcknowledge;
+    dataForKeypad = dataForKeypadTMP;
 
-        // Communications
-        CommsTaskData dataForCommsTMP;
-        dataForCommsTMP.measurementSelectionPtr = &measurementSelection;
-        dataForCommsTMP.temperatureCorrectedPtr = tempCorrectedBuf;
-        dataForCommsTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
-        dataForCommsTMP.prCorrectedPtr = pulseRateCorrectedBuf;
-        dataForComms = dataForCommsTMP;
-
-
-
-
-    
-    
-    
+    // Communications
+    CommsTaskData dataForCommsTMP;
+    dataForCommsTMP.measurementSelectionPtr = &measurementSelection;
+    dataForCommsTMP.temperatureCorrectedPtr = tempCorrectedBuf;
+    dataForCommsTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
+    dataForCommsTMP.prCorrectedPtr = pulseRateCorrectedBuf;
+    dataForComms = dataForCommsTMP;
     
     // Assign values in TCB's
     // Measure
@@ -716,13 +709,20 @@ void setup(void) {
 
     // Head is the start of the empty doubly linkedlist
     // Adding each task to the Double Linked List
-    appendAtEnd(&MeasureTask);
-    appendAtEnd(&ComputeTask);
-    appendAtEnd(&DisplayTask);
-    appendAtEnd(&AnnunciateTask);
-    appendAtEnd(&StatusTask);
+    appendAtEnd(MeasureTask);
+    appendAtEnd(ComputeTask);
+    appendAtEnd(DisplayTask);
+    appendAtEnd(AnnunciateTask);
+    appendAtEnd(StatusTask);
 
     currPointer = linkedListHead;
+
+    while (currPointer != NULL) {
+        Serial.println("h");
+        Serial.println(long(currPointer->prev,HEX));
+        Serial.println(long(currPointer->next,HEX));
+        currPointer = NULL;
+    }
 }
 
 // Modify this to traverse linkedList instead
@@ -743,13 +743,14 @@ void loop(void) {
     }*/
 
     // LinkedList traversal
-    currPointer->taskFuncPtr(currPointer->taskDataPtr);
+    // (*((*currPointer).taskFuncPtr))((*currPointer).taskDataPtr);
+    // currPointer->taskFuncPtr(currPointer->taskDataPtr);
 
-    if (currPointer->next == NULL) {
-        currPointer = linkedListHead;
-    } else {
-        currPointer = currPointer->next;
-    }
+    // if (currPointer->next == NULL) {
+    //     currPointer = linkedListHead;
+    // } else {
+    //     currPointer = currPointer->next;
+    // }
     //updateCounter();
 }
 
@@ -758,8 +759,8 @@ void loop(void) {
 // ------------------------------------Double Linked List Fns-------------------------------
 
 // Add to front
-void push(TCB* newNode) {
-  
+void push(TCB newTCB) {
+    TCB* newNode = &newTCB;
     /* 1. Make next of new node as head and previous as NULL */
     newNode->next = linkedListHead;
     newNode->prev = NULL;
@@ -774,8 +775,9 @@ void push(TCB* newNode) {
 }
 
 // Add to back
-void appendAtEnd(TCB* newNode) {
+void appendAtEnd(TCB newTCB) {
     // Set up second pointer to be moved to the end of the list, will be used in 3
+    TCB* newNode = &newTCB;
     TCB* lastRef = linkedListHead;  
   
     /* 1. This new node is going to be the last node, so
@@ -787,11 +789,12 @@ void appendAtEnd(TCB* newNode) {
     if (linkedListHead == NULL) {
         newNode->prev = NULL;
         linkedListHead = newNode;
+        return;
     } else {   
         /* 3. Else traverse till the last node */
         while (lastRef->next != NULL) {
             lastRef = lastRef->next;
-        }
+        }     
     }
  
     /* 4. Change the next of last node */
@@ -799,6 +802,7 @@ void appendAtEnd(TCB* newNode) {
  
     /* 5. Make last node as previous of new node */
     newNode->prev = lastRef;
+
     return;
 }
 
