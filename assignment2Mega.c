@@ -51,6 +51,10 @@ int currSys;
 int currDia;
 int currPr;
 
+// index for flags (0 -> 4) : measure, compute, display, annunciate, status
+unsigned short addFlags[5] = {0};
+unsigned short removeFlags[5] = {0};
+
 // Display
 unsigned char tempCorrectedBuf[8];
 unsigned char bloodPressCorrectedBuf[16];
@@ -276,6 +280,9 @@ void measureDataFunc(void* data) {
                 *(dataStruct.bloodPressRawPtr + i) = diastolicPressRawBuf[i- sizeBuf];
             }
         }
+
+    addFlags[1] = 1; // when the new data is being sent to compute
+    removeFlags[0] = 1;
 }
 
 void computeDataFunc(void* x) {
@@ -303,6 +310,7 @@ void computeDataFunc(void* x) {
     // Computing and converting pulse rate to unsigned char*
     double correctedPr =  8 + 3 * rawPr;
     *dataStruct.prCorrectedPtr = correctedPr;
+    removeFlags[1] = 1;
 }
 
 
@@ -728,6 +736,66 @@ void loop(void) {
         currPointer = currPointer->next;
     }
 
+}
+
+void scheduler() {
+    unsigned long start = micros();
+    while(currPointer != NULL) {
+        currPointer->taskFuncPtr(currPointer->taskDataPtr); // execute 1st task in the task que
+        for(int i = 0; i < 5; i++) { // checks add task flags
+            if(addFlags[i]) {
+                runTask(i, true); // insert task
+                addFlags[i] = 0;
+            }
+        }
+        currPointer = currPointer->next; // moves current pointer to the next task
+        for(int i = 0; i < 5; i++) { // checks remove task flags
+            if(removeFlags[i]) {
+                runTask(i, false); // remove task
+                removeFlags[i] = 0;
+            }
+        }
+    }
+}
+
+void runTask(int taskID, bool insertTask) {
+    switch(taskID) {
+        case 0: 
+            if(insertTask) {
+                insertAfterNode(&MeasureTask);
+            } else {
+                deleteNode(&MeasureTask);
+            }
+        break;
+        case 1:
+            if(insertTask) {
+                insertAfterNode(&ComputeTask);
+            } else {
+                deleteNode(&ComputeTask);
+            }
+        break;
+        case 2:
+            if(insertTask) {
+                insertAfterNode(&DisplayTask);
+            } else {
+                deleteNode(&DisplayTask);
+            }
+        break;
+        case 3:
+            if(insertTask) {
+                insertAfterNode(&AnnunciateTask);
+            } else {
+                deleteNode(&AnnunciateTask);
+            }
+        break;
+        case 4:
+            if(insertTask) {
+                insertAfterNode(&StatusTask);
+            } else {
+                deleteNode(&StatusTask);
+            }
+        break;
+    }
 }
 
 
