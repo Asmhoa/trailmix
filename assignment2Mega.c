@@ -18,12 +18,19 @@ volatile int unoCounter = 0;
 #define END_TERM ","
 #define END_MESSAGE "<"
 
+
+// ================================================ TFT ================================================================
 /* INITIALIZATION - SETUP TFT DISPLAY */
 #define LCD_CS A3 // Chip Select goes to Analog 3
 #define LCD_CD A2 // Command/Data goes to Analog 2
 #define LCD_WR A1 // LCD Write goes to Analog 1
 #define LCD_RD A0 // LCD Read goes to Analog 0
 #define LCD_RESET A4 // Can alternately just connect to Arduino's reset pin
+
+#define YP A3  // must be an analog pin, use "An" notation!
+#define XM A2  // must be an analog pin, use "An" notation!
+#define YM 9   // can be a digital pin
+#define XP 8   // can be a digital pin
 
 // Assign human-readable names to some common 16-bit color values:
 #define BLACK   0x0000
@@ -36,7 +43,28 @@ volatile int unoCounter = 0;
 #define WHITE   0xFFFF
 #define ORANGE  0xFD40
 
+#define MINPRESSURE 10
+#define MAXPRESSURE 1000
+
+//Touch For New ILI9341 TP
+#define TS_MINX 120
+#define TS_MAXX 900
+
+#define TS_MINY 70
+#define TS_MAXY 920
+// We have a status line for like, is FONA working
+#define STATUS_X 10
+#define STATUS_Y 65
+
+Elegoo_GFX_Button menuButtons[4];
+Elegoo_GFX_Button measureSelectButtons[3];
+Elegoo_GFX_Button AcknowledgeButton;
+
 Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
+
+TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
+
+// ================================================ TFT ================================================================
 
 
 /* INITIALIZATION - GLOBAL VARIABLES */
@@ -161,6 +189,9 @@ TCB ComputeTask;
 TCB DisplayTask;
 TCB AnnunciateTask;
 TCB StatusTask;
+// Newly added Keypad task
+TCB KeyPadTask;
+
 TCB NullTask;
 
 // Data
@@ -169,6 +200,7 @@ ComputeTaskData dataForCompute;
 DisplayTaskData dataForDisplay;
 WarningAlarmTaskData dataForWarningAlarm;
 StatusTaskData dataForStatus;
+    // For Keypad
 KeypadTaskData dataForKeypad;
 CommsTaskData dataForComms;
 
@@ -380,7 +412,9 @@ void computeDataFunc(void* x) {
 }
 
 
+// ENTER THIS ONLY WHEN ANNUNCIATION IS PRESSED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 void displayDataFunc(void* x) {
+
     if (unoCounter % 5 == 0) { // Every 5 seconds
         DisplayTaskData* data = (DisplayTaskData*)x;
         DisplayTaskData dataStruct = *data;
@@ -412,6 +446,30 @@ void displayDataFunc(void* x) {
         // Battery
         battLow ? tft.setTextColor(RED) : tft.setTextColor(GREEN);
         tft.println("Battery: " + (String)*dataStruct.batteryStatePtr);
+
+        // Acknowledge button
+        AcknowledgeButton.initButton(&tft, 120, 265, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "DISMISS", 2);
+        AcknowledgeButton.drawButton();
+
+        bool staySensingPress = true; 
+        while(staySensingPress) {
+            TSPoint p = ts.getPoint();
+            if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+                // scale from 0->1023 to tft.width
+                p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+                p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+            }
+            if (AcknowledgeButton.contains(p.x, p.y)) {
+                    AcknowledgeButton.press(true); // tell the button it is pressed
+
+                    //Dismiss the alarm for five seconds
+
+                    //If signal value remains out of range for five seconds, resume alarm annunciation
+
+            } else {
+                    AcknowledgeButton.press(false);  // tell the button it is NOT pressed
+            }
+        }
     }
 }
 
@@ -524,6 +582,115 @@ void statusDataFunc(void* x) {
         StatusTaskData dataStruct = *data;
         
         *dataStruct.batteryStatePtr = 200 - (int)(unoCounter / 5);
+    }
+}
+
+void keyPadFunc(void* x) {
+    KeypadTaskData* data = (KeypadTaskData*)x;
+    KeypadTaskData dataStruct = *data;
+
+    // Create buttons
+    menuButtons[0].initButton(&tft, 120, 55, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "MENU", 2);
+    menuButtons[0].drawButton();
+
+    menuButtons[1].initButton(&tft, 120, 125, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "ANNUNCIATION", 2);
+    menuButtons[1].drawButton();
+
+    menuButtons[2].initButton(&tft, 120, 195, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EXTRA MODE 1", 2);
+    menuButtons[2].drawButton();
+
+    menuButtons[3].initButton(&tft, 120, 265, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EXTRA MODE 2", 2);
+    menuButtons[3].drawButton();
+
+
+    bool staySensingPress = true;
+
+    // add while loop
+    while (staySensingPress) {
+        TSPoint p = ts.getPoint();
+
+        if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+            // scale from 0->1023 to tft.width
+            p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+            p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+        }
+    
+        // go thru all the buttons, checking if they were pressed
+        for (uint8_t b = 0; b < 4; b++) {
+            if (menuButtons[b].contains(p.x, p.y)) {
+                Serial.print("Pressing: "); Serial.println(b);
+                menuButtons[b].press(true);  // tell the button it is pressed
+                if (b == 0) { // Menu
+                    staySensingPress = false;
+                    tft.fillScreen(BLACK);
+                    menuView();
+                } else if (b == 1) { // Annunciate
+                    staySensingPress = false;
+                    tft.fillScreen(BLACK);
+
+
+                } else { // Nothing for now
+
+                }
+            } else {
+                menuButtons[b].press(false);  // tell the button it is NOT pressed
+            }
+        }
+    }
+}
+
+void menuView() {
+    measureSelectButtons[0].initButton(&tft, 120, 60, 240, 100, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Blood Pressure", 2);
+    measureSelectButtons[0].drawButton();
+
+    measureSelectButtons[1].initButton(&tft, 120, 160, 240, 100, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Temperature", 2);
+    measureSelectButtons[1].drawButton();
+
+    measureSelectButtons[2].initButton(&tft, 120, 260, 240, 100, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Pulse Rate", 2);
+    measureSelectButtons[2].drawButton();
+    
+    bool staySensingPress = true;
+    while (staySensingPress) {
+
+        TSPoint p = ts.getPoint();
+
+        if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+            // scale from 0->1023 to tft.width
+            p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+            p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+        }
+
+        for (uint8_t b = 0; b < 3; b++) {
+            if (measureSelectButtons[b].contains(p.x, p.y)) {
+                Serial.print("Pressing: "); Serial.println(b);
+                measureSelectButtons[b].press(true);  // tell the button it is pressed
+                if (b == 0) { // Blood Pressure
+                    staySensingPress = false;
+                    tft.fillScreen(BLACK);
+                    // Measure Blood Pressure
+                    // AND THEN go into annunciation, blood pressure should now be updated
+
+                    // SEND REQUEST, SET FLAG ADDTASK FOR MEASURE
+
+                } else if (b == 1) { // Temperature
+                    staySensingPress = false;
+                    tft.fillScreen(BLACK);
+                    // Measure Temperature
+                    // AND THEN go into annunciation, temperature should now be updated
+
+                    // SEND REQUEST, SET FLAG ADDTASK FOR MEASURE
+
+                } else { // Measure pulse rate, and THEN go into annunciation, PR should now be updated 
+                    staySensingPress = false;
+                    tft.fillScreen(BLACK);
+
+                    // SEND REQUEST, SET FLAG ADDTASK FOR MEASURE
+
+                }
+            } else {
+                measureSelectButtons[b].press(false);  // tell the button it is NOT pressed
+            }
+        }
     }
 }
 
@@ -703,133 +870,67 @@ void setup(void) {
     NullTaskTMP.next = NULL;
     NullTaskTMP.prev = NULL;
     NullTask = NullTaskTMP;
-
-
-    // Head is the start of the empty doubly linkedlist
-    // Adding each task to the Double Linked List
-    // appendAtEnd(MeasureTask);
-    // appendAtEnd(ComputeTask);
-    // appendAtEnd(DisplayTask);
-    // appendAtEnd(AnnunciateTask);
-    // appendAtEnd(StatusTask);
-
-    // Manually initialising linkedlist
-
-    //linkedListHead = &MeasureTask;
-
-   // MeasureTask.next = &ComputeTask;
-    //MeasureTask.prev = NULL;
-
-    //ComputeTask.next = &DisplayTask;
-    //ComputeTask.prev = &MeasureTask;
-
-    //DisplayTask.next = &AnnunciateTask;
-    //DisplayTask.prev = &ComputeTask;
-
-    //AnnunciateTask.next = &StatusTask;
-   // AnnunciateTask.prev = &DisplayTask;
-
-    // StatusTask.next = NULL;
-    // StatusTask.prev = &AnnunciateTask;
+ 
+    // PROPER LINKEDLIST SETUP --------- DO NOT DELETE
     appendAtEnd(&MeasureTask);
     appendAtEnd(&ComputeTask);
     appendAtEnd(&DisplayTask);
     appendAtEnd(&AnnunciateTask);
     appendAtEnd(&StatusTask);
+
     // Serial.println("done making linkedlist");
 
-    // if(MeasureTask.prev == NULL) {
-    //     Serial.println("null -> measure");
-    // }
-    // if(MeasureTask.next == &ComputeTask) {
-    //     Serial.println("measure -> compute");
-    // }
-    // if(ComputeTask.prev == &MeasureTask) {
-    //     Serial.println("compute -> measure");
-    // }
-    // if(ComputeTask.next == &DisplayTask) {
-    //     Serial.println("compute -> display");
-    // }
-    // if(DisplayTask.next == &AnnunciateTask) {
-    //     Serial.println("display -> annunciate");
-    // }
-    // if(AnnunciateTask.next == &StatusTask) {
-    //     Serial.println("annunciate -> status");
-    // }
-    // if(linkedListHead == &MeasureTask) {
-    //     Serial.println("linked = measuretask");
-    // }
-
     currPointer = linkedListHead;
-
-
 }
 
 // Modify this to traverse linkedList instead
 void loop(void) {
     unsigned long start = micros(); 
-    // if(currPointer == NULL) {
-    //         Serial.println("n");
-    // }
-    // while (currPointer != NULL) {
-    //     Serial.println("h");
-    //     currPointer = currPointer->next;
-    // }
+    
     
 
-    /* SCHEDULE 
-    TCB tasksArray[NUM_TASKS];
-    tasksArray[0] = MeasureTask;
-    tasksArray[1] = ComputeTask;
-    tasksArray[2] = DisplayTask;
-    tasksArray[3] = AnnunciateTask;
-    tasksArray[4] = StatusTask;
-    tasksArray[5] = NullTask;
 
-    for(int i = 0; i < NUM_TASKS; i++) { // QUEUE
-        tasksArray[i].taskFuncPtr(tasksArray[i].taskDataPtr);
-    } */
 
+    
     // LinkedList traversal
     if(currPointer != NULL) {
+        TCB currentTask = *currPointer;
         currPointer->taskFuncPtr(currPointer->taskDataPtr);
     }
-    // 
 
     if (currPointer->next == NULL) {
         // currPointer = linkedListHead;
     } else {
         currPointer = currPointer->next;
     }
-
 }
 
 
 
 // ------------------------------------Double Linked List Fns-------------------------------
 
-// Add to front
-void push(TCB newTCB) {
-    TCB* newNode = &newTCB;
-    /* 1. Make next of new node as head and previous as NULL */
-    newNode->next = linkedListHead;
-    newNode->prev = NULL;
+// // Add to front
+// void push(TCB newTCB) {
+//     TCB* newNode = &newTCB;
+//     /* 1. Make next of new node as head and previous as NULL */
+//     newNode->next = linkedListHead;
+//     newNode->prev = NULL;
  
-    /* 2. change prev of head node to new node */
-    if(linkedListHead !=  NULL) {
-      linkedListHead->prev = newNode ;
-    }
+//     /* 2. change prev of head node to new node */
+//     if(linkedListHead !=  NULL) {
+//       linkedListHead->prev = newNode ;
+//     }
  
-    /* 3. move the head to point to the new node */
-    linkedListHead = newNode;
-}
+//     /* 3. move the head to point to the new node */
+//     linkedListHead = newNode;
+// }
 
+// WORKS
 // Add to back
 void appendAtEnd(TCB* newNode) {
     // Set up second pointer to be moved to the end of the list, will be used in 3
     //TCB* newNode = newTCB;
     TCB* lastRef = linkedListHead;  
-
   
     /* 1. This new node is going to be the last node, so
           make next of it as NULL*/
