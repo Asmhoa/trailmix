@@ -353,32 +353,30 @@ void measureDataFunc(void* data) {
 }
 
 void computeDataFunc(void* x) {
-    if (unoCounter % 5 == 0) {
-        // Dereferencing void pointer to ComputeStruct
-        ComputeTaskData* data = (ComputeTaskData*)x;
-        ComputeTaskData dataStruct = *data;
+    // Dereferencing void pointer to ComputeStruct
+    ComputeTaskData* data = (ComputeTaskData*)x;
+    ComputeTaskData dataStruct = *data;
 
-        int rawTemp = *(dataStruct.temperatureRawPtr);
-        int rawSys = *(dataStruct.bloodPressRawPtr);
-        int rawDia = *(dataStruct.bloodPressRawPtr + 8);
-        int rawPr = *(dataStruct.pulseRateRawPtr);
+    int rawTemp = *(dataStruct.temperatureRawPtr);
+    int rawSys = *(dataStruct.bloodPressRawPtr);
+    int rawDia = *(dataStruct.bloodPressRawPtr + 8);
+    int rawPr = *(dataStruct.pulseRateRawPtr);
 
-        // Computing and converting temperatureRaw to unsigned char* (Celcius)
-        double correctedTemp = 5 + 0.75 * rawTemp;
-        *dataStruct.temperatureCorrectedPtr = correctedTemp;
-        
-        // Computing and converting systolic pressure to unsigned char*
-        double correctedSys = 9 + 2 * rawSys;
-        *dataStruct.bloodPressCorrectedPtr = correctedSys;
-        
-        // Computing and converting diastolic pressure to unsigned char*
-        double correctedDia =  6 + 1.5 * rawDia;
-        *(dataStruct.bloodPressCorrectedPtr+8) = correctedDia;
+    // Computing and converting temperatureRaw to unsigned char* (Celcius)
+    double correctedTemp = 5 + 0.75 * rawTemp;
+    *dataStruct.temperatureCorrectedPtr = correctedTemp;
+    
+    // Computing and converting systolic pressure to unsigned char*
+    double correctedSys = 9 + 2 * rawSys;
+    *dataStruct.bloodPressCorrectedPtr = correctedSys;
+    
+    // Computing and converting diastolic pressure to unsigned char*
+    double correctedDia =  6 + 1.5 * rawDia;
+    *(dataStruct.bloodPressCorrectedPtr+8) = correctedDia;
 
-        // Computing and converting pulse rate to unsigned char*
-        double correctedPr =  8 + 3 * rawPr;
-        *dataStruct.prCorrectedPtr = correctedPr;
-    }
+    // Computing and converting pulse rate to unsigned char*
+    double correctedPr =  8 + 3 * rawPr;
+    *dataStruct.prCorrectedPtr = correctedPr;
 }
 
 
@@ -668,7 +666,7 @@ void setup(void) {
 
     // Compute
     TCB ComputeTaskTMP;
-    // ComputeTaskTMP.taskFuncPtr = &computeDataFunc;
+    ComputeTaskTMP.taskFuncPtr = &computeDataFunc;
     ComputeTaskTMP.taskDataPtr = &dataForCompute;
     ComputeTaskTMP.next = NULL;
     ComputeTaskTMP.prev = NULL;
@@ -794,8 +792,6 @@ void loop(void) {
 
     // LinkedList traversal
     if(currPointer != NULL) {
-        TCB currentTask = *currPointer;
-        // currentTask.taskFuncPtr(currentTask.taskDataPtr);
         currPointer->taskFuncPtr(currPointer->taskDataPtr);
     }
     // 
@@ -805,6 +801,7 @@ void loop(void) {
     } else {
         currPointer = currPointer->next;
     }
+
 }
 
 
