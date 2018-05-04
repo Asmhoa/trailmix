@@ -8,15 +8,15 @@
 #include <Elegoo_TFTLCD.h> // Hardware-specific library
 
 #include <TimerThree.h> // SYSTEM TICK
-#include <TimerOne.h>   // PULSE TICK
-#include <TimerFour.h>  // PULSE INTERVAL TICK
-
 
 // Updated during interrupt service routines
+
 volatile int unoCounter = 0;
 
-// Define number of tasks
-#define NUM_TASKS 6 // Need to ensure this is accurate else program breaks
+/* SERIAL COMMUNICATIONS CONSTANT */
+#define START_MESSAGE ">"
+#define END_TERM ","
+#define END_MESSAGE "<"
 
 /* INITIALIZATION - SETUP TFT DISPLAY */
 #define LCD_CS A3 // Chip Select goes to Analog 3
@@ -34,6 +34,7 @@ volatile int unoCounter = 0;
 #define MAGENTA 0xF81F
 #define YELLOW  0xFFE0
 #define WHITE   0xFFFF
+#define ORANGE  0xFD40
 
 Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
@@ -43,6 +44,10 @@ Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 unsigned int temperatureRawBuf[8] = {75, 75, 75, 75, 75, 75, 75, 75};
 unsigned int bloodPressRawBuf[16] = {80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80};
 unsigned int pulseRateRawBuf[8] = {8, 8, 8, 8, 8, 8, 8, 8};
+int currTemp;
+int currSys;
+int currDia;
+int currPr;
 
 // Display
 unsigned char tempCorrectedBuf[8];
@@ -80,7 +85,6 @@ struct TaskStruct {
 TCB* linkedListHead = NULL;
 // Traversing Pointer
 TCB* currPointer = NULL;
-
 
 
 /* INITIALIZATION - MAKE TASK DATA POINTER BLOCKS */
@@ -131,6 +135,7 @@ struct DataForCommsStruct {
     unsigned char* prCorrectedPtr;
 }; typedef struct DataForCommsStruct CommsTaskData;
 
+// TODO :- move to UNO
 // Arrays containing changes in temp and pulse, will be switched
 // when upper/lower limits are hit. 0th elements are called at Even
 // function calls.
@@ -147,6 +152,7 @@ bool pulseCrossedForty = false;
 bool systolicComplete = false;
 // Diastolic completion
 bool diastolicComplete = false;
+// END TODO
 
 
 /* INITIALIZATION - MAKE INSTANCES OF TCB */
@@ -168,6 +174,23 @@ CommsTaskData dataForComms;
 
 
 /* INITIALIZATION - FUNCTION DEFINITIONS */
+void requestMessage(String taskID, String funcToRun, void* data) {
+    if(taskID.equals("measureDataFunc")) {
+        Serial.print(START_MESSAGE + taskID + END_TERM + funcToRun
+            + END_TERM);
+        for(int i = 0; i < 4; i++) {
+            Serial.print(*(dataToSend + i) + END_TERM);
+        }
+        Serial.print(END_MESSAGE);
+    } else if (taskID.equals("computeDataFunc")) {
+
+    } else if (taskID.equals("annunciateDataFunc")) {
+        
+    } else if (taskID.equals("statusDataFunc")) {
+        
+    }
+}
+
 void measureDataFunc(void* data) {
     MeasureTaskData* dataToMeasure = (MeasureTaskData*)data;
     MeasureTaskData dataStruct = *dataToMeasure;
@@ -191,14 +214,16 @@ void measureDataFunc(void* data) {
     }
     
     // NEED TO SEND THESE FOUR NUMBERS OVER TO UNO ----------------------------------------------------------
-    int currTemp = temperatureRawBufTemp[0];
-    int currSys = systolicPressRawBuf[0];
-    int currDia = diastolicPressRawBuf[0];
-    int currPr = pulseRateRawBufTemp[0];
-    
+    currTemp = temperatureRawBufTemp[0];
+    currSys = systolicPressRawBuf[0];
+    currDia = diastolicPressRawBuf[0];
+    currPr = pulseRateRawBufTemp[0];
 
+    int dataToSend[] = {currTemp, currSys, currDia, currPr};
     // THIS IS WHERE COMMUNICATION SHOULD HAPPEN ------------------------------------------------------------
     // SEND REQUEST MESSAGE
+    requestMessage("measureDataFunc", "measureFromValues",
+        dataToSend);
 
     // |/ UNO ---------------------------------------------------------------------------------------------------
     /*
@@ -273,23 +298,23 @@ void measureDataFunc(void* data) {
         }        
 
         // Pulse
-        if ((pulseRateRaw > 40 || pulseRateRaw < 15) && pulseCrossedForty) {
+        if ((currPr > 40 || currPr < 15) && pulseCrossedForty) {
             int temp = pulseChange[0];
             pulseChange[0] = -1 * pulseChange[1];
             pulseChange[1] = -1 * temp; 
         }
         if (even) {
-            pulseRateRaw += pulseChange[0];
+            currPr += pulseChange[0];
         } else {
-            pulseRateRaw += pulseChange[1];
+            currPr += pulseChange[1];
         }
         
         float low = currPr * 0.85;
         float high = currPr * 1.15;
 
-        if((prMeasured < low ) || (prMeasured > high)) {
-            currPr = prMeasured;
-        }
+        // if((prMeasured < low ) || (prMeasured > high)) {
+        //     currPr = prMeasured;
+        // }
 
         // ^ UNO ------------------------------------------------------------------------------------------
 
@@ -322,9 +347,7 @@ void measureDataFunc(void* data) {
             } else {
                 *(dataStruct.bloodPressRawPtr + i) = diastolicPressRawBuf[i- sizeBuf];
             }
-
         }
-
     }
 }
 
@@ -333,21 +356,26 @@ void computeDataFunc(void* x) {
         // Dereferencing void pointer to ComputeStruct
         ComputeTaskData* data = (ComputeTaskData*)x;
         ComputeTaskData dataStruct = *data;
-        
+
+        int rawTemp = *(dataStruct.temperatureRawPtr);
+        int rawSys = *(dataStruct.bloodPressRawPtr);
+        int rawDia = *(dataStruct.bloodPressRawPtr + 8);
+        int rawPr = *(dataStruct.pulseRateRawPtr);
+
         // Computing and converting temperatureRaw to unsigned char* (Celcius)
-        double correctedTemp = 5 + 0.75 * *dataStruct.temperatureRawPtr;
+        double correctedTemp = 5 + 0.75 * rawTemp;
         *dataStruct.temperatureCorrectedPtr = correctedTemp;
         
         // Computing and converting systolic pressure to unsigned char*
-        double correctedSys = 9 + 2 * *dataStruct.systolicPressRawPtr;
-        *dataStruct.sysCorrectedPtr = correctedSys;
+        double correctedSys = 9 + 2 * rawSys;
+        *dataStruct.bloodPressCorrectedPtr = correctedSys;
         
         // Computing and converting diastolic pressure to unsigned char*
-        double correctedDia =  6 + 1.5 * *dataStruct.diastolicPressRawPtr;
-        *dataStruct.diasCorrectedPtr = correctedDia;
+        double correctedDia =  6 + 1.5 * rawDia;
+        *(dataStruct.bloodPressCorrectedPtr+8) = correctedDia;
 
         // Computing and converting pulse rate to unsigned char*
-        double correctedPr =  8 + 3 * *dataStruct.pulseRateRawPtr;
+        double correctedPr =  8 + 3 * rawPr;
         *dataStruct.prCorrectedPtr = correctedPr;
     }
 }
@@ -363,8 +391,8 @@ void displayDataFunc(void* x) {
 
         // Temperature
         tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
-        if (tempHight) {
-            ft.setTextColor(RED); // Add acknowledgement event??
+        if (tempHigh) {
+            tft.setTextColor(RED); // Add acknowledgement event??
         } 
         tft.println("Temperature: " + (String)*dataStruct.temperatureCorrectedPtr + " C");
 
@@ -373,8 +401,7 @@ void displayDataFunc(void* x) {
         if (bpHigh) { 
             tft.setTextColor(RED); // Add acknowledgement event??
         }
-        tft.println("Systolic pressure: " + (String)*dataStruct.sysCorrectedPtr + " mm Hg");
-        tft.println("Diastolic pressure: " + (String)*dataStruct.diasCorrectedPtr + " mm Hg");
+        tft.println("Systolic pressure: " + (String)*dataStruct.bloodPressCorrectedPtr + " mm Hg");
 
         // Pulse
         pulseOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
@@ -415,7 +442,7 @@ void annunciateDataFunc(void* x) {
     // unhealthy systolic pressures. 
     // SysPressure > 130 == High blood pressure
     // SysPressure > 160 == CALL A DOCTOR
-    int normalizedSystolic = 9 + 2 * *dataStruct.systolicPressRawPtr;
+    int normalizedSystolic = 9 + 2 * *dataStruct.bloodPressRawPtr;
     if (normalizedSystolic > 130) {
         // TURN TEXT RED
         bpOutOfRange = 1;
@@ -435,7 +462,7 @@ void annunciateDataFunc(void* x) {
         User can acknowledge it to DISABLE INTERRUPT
     */
 
-    double normalizedDiastolic = 6 + 1.5 * *dataStruct.diastolicPressRawPtr;
+    double normalizedDiastolic = 6 + 1.5 * *dataStruct.bloodPressRawPtr;
     if (normalizedDiastolic > 90) {
         // TURN TEXT RED
         bpOutOfRange = 1;
@@ -513,59 +540,59 @@ void setup(void) {
 
     // Initialise Timer3
     Timer3.initialize(1000000);
-    Timer3.attachInterrupt(updateCounter());
+    Timer3.attachInterrupt(updateCounter);
     
     // Configure display
-        Serial.begin(9600);
-        Serial.println(F("TFT LCD test"));
+    Serial.begin(9600);
+    // Serial.println(F("TFT LCD test"));
 
 
-        #ifdef USE_Elegoo_SHIELD_PINOUT
-            Serial.println(F("Using Elegoo 2.4\" TFT Arduino Shield Pinout"));
-        #else
-            Serial.println(F("Using Elegoo 2.4\" TFT Breakout Board Pinout"));
-        #endif
+    // #ifdef USE_Elegoo_SHIELD_PINOUT
+    //     Serial.println(F("Using Elegoo 2.4\" TFT Arduino Shield Pinout"));
+    // #else
+    //     Serial.println(F("Using Elegoo 2.4\" TFT Breakout Board Pinout"));
+    // #endif
 
-        Serial.print("TFT size is "); Serial.print(tft.width()); Serial.print("x"); Serial.println(tft.height());
+    // Serial.print("TFT size is "); Serial.print(tft.width()); Serial.print("x"); Serial.println(tft.height());
 
-        tft.reset();
+    // tft.reset();
 
-        uint16_t identifier = tft.readID();
-        if(identifier == 0x9325) {
-            Serial.println(F("Found ILI9325 LCD driver"));
-        } else if(identifier == 0x9328) {
-            Serial.println(F("Found ILI9328 LCD driver"));
-        } else if(identifier == 0x4535) {
-            Serial.println(F("Found LGDP4535 LCD driver"));
-        }else if(identifier == 0x7575) {
-            Serial.println(F("Found HX8347G LCD driver"));
-        } else if(identifier == 0x9341) {
-            Serial.println(F("Found ILI9341 LCD driver"));
-        } else if(identifier == 0x8357) {
-            Serial.println(F("Found HX8357D LCD driver"));
-        } else if(identifier==0x0101)
-        {     
-            identifier=0x9341;
-            Serial.println(F("Found 0x9341 LCD driver"));
-        }
-        else if(identifier==0x1111)
-        {     
-            identifier=0x9328;
-            Serial.println(F("Found 0x9328 LCD driver"));
-        }
-        else {
-            Serial.print(F("Unknown LCD driver chip: "));
-            Serial.println(identifier, HEX);
-            Serial.println(F("If using the Elegoo 2.8\" TFT Arduino shield, the line:"));
-            Serial.println(F("  #define USE_Elegoo_SHIELD_PINOUT"));
-            Serial.println(F("should appear in the library header (Elegoo_TFT.h)."));
-            Serial.println(F("If using the breakout board, it should NOT be #defined!"));
-            Serial.println(F("Also if using the breakout, double-check that all wiring"));
-            Serial.println(F("matches the tutorial."));
-            identifier=0x9328;
-        
-        }
-        tft.begin(identifier);
+    // uint16_t identifier = tft.readID();
+    // if(identifier == 0x9325) {
+    //     Serial.println(F("Found ILI9325 LCD driver"));
+    // } else if(identifier == 0x9328) {
+    //     Serial.println(F("Found ILI9328 LCD driver"));
+    // } else if(identifier == 0x4535) {
+    //     Serial.println(F("Found LGDP4535 LCD driver"));
+    // }else if(identifier == 0x7575) {
+    //     Serial.println(F("Found HX8347G LCD driver"));
+    // } else if(identifier == 0x9341) {
+    //     Serial.println(F("Found ILI9341 LCD driver"));
+    // } else if(identifier == 0x8357) {
+    //     Serial.println(F("Found HX8357D LCD driver"));
+    // } else if(identifier==0x0101)
+    // {     
+    //     identifier=0x9341;
+    //     Serial.println(F("Found 0x9341 LCD driver"));
+    // }
+    // else if(identifier==0x1111)
+    // {     
+    //     identifier=0x9328;
+    //     Serial.println(F("Found 0x9328 LCD driver"));
+    // }
+    // else {
+    //     Serial.print(F("Unknown LCD driver chip: "));
+    //     Serial.println(identifier, HEX);
+    //     Serial.println(F("If using the Elegoo 2.8\" TFT Arduino shield, the line:"));
+    //     Serial.println(F("  #define USE_Elegoo_SHIELD_PINOUT"));
+    //     Serial.println(F("should appear in the library header (Elegoo_TFT.h)."));
+    //     Serial.println(F("If using the breakout board, it should NOT be #defined!"));
+    //     Serial.println(F("Also if using the breakout, double-check that all wiring"));
+    //     Serial.println(F("matches the tutorial."));
+    //     identifier=0x9328;
+    
+    // }
+    // tft.begin(identifier);
 
     // Set measurements to initial values
     // char* and char values are already set as global variables
@@ -647,7 +674,7 @@ void setup(void) {
 
     // Compute
     TCB ComputeTaskTMP;
-    ComputeTaskTMP.taskFuncPtr = &computeDataFunc;
+    // ComputeTaskTMP.taskFuncPtr = &computeDataFunc;
     ComputeTaskTMP.taskDataPtr = &dataForCompute;
     ComputeTaskTMP.next = NULL;
     ComputeTaskTMP.prev = NULL;
@@ -688,11 +715,11 @@ void setup(void) {
 
     // Head is the start of the empty doubly linkedlist
     // Adding each task to the Double Linked List
-    append(&linkedListHead, &MeasureTask);
-    append(&linkedListHead, &ComputeTask);
-    append(&linkedListHead, &DisplayTask);
-    append(&linkedListHead, &AnnunciateTask);
-    append(&linkedListHead, &StatusTask);
+    appendAtEnd(&MeasureTask);
+    appendAtEnd(&ComputeTask);
+    appendAtEnd(&DisplayTask);
+    appendAtEnd(&AnnunciateTask);
+    appendAtEnd(&StatusTask);
 
     currPointer = linkedListHead;
 }
@@ -715,7 +742,7 @@ void loop(void) {
     }*/
 
     // LinkedList traversal
-    *currPointer.taskFuncPtr(*currPointer.taskDataPtr);
+    currPointer->taskFuncPtr(currPointer->taskDataPtr);
 
     if (currPointer->next == NULL) {
         currPointer = linkedListHead;
@@ -730,25 +757,25 @@ void loop(void) {
 // ------------------------------------Double Linked List Fns-------------------------------
 
 // Add to front
-void push(TCB** headRef, TCB* newNode) {
+void push(TCB* newNode) {
   
     /* 1. Make next of new node as head and previous as NULL */
-    newNode->next = (*headRef);
+    newNode->next = linkedListHead;
     newNode->prev = NULL;
  
     /* 2. change prev of head node to new node */
-    if((*headRef) !=  NULL) {
-      (*headRef)->prev = newNode ;
+    if(linkedListHead !=  NULL) {
+      linkedListHead->prev = newNode ;
     }
  
     /* 3. move the head to point to the new node */
-    (*headRef) = newNode;
+    linkedListHead = newNode;
 }
 
 // Add to back
-void append(TCB** headRef, TCB* newNode) {
+void appendAtEnd(TCB* newNode) {
     // Set up second pointer to be moved to the end of the list, will be used in 3
-    TCB* lastRef = *headRef;  
+    TCB* lastRef = linkedListHead;  
   
     /* 1. This new node is going to be the last node, so
           make next of it as NULL*/
@@ -756,15 +783,14 @@ void append(TCB** headRef, TCB* newNode) {
  
     /* 2. If the Linked List is empty, then make the new
           node as head */
-    if (*headRef == NULL) {
+    if (linkedListHead == NULL) {
         newNode->prev = NULL;
-        *headRef = newNode;
-        return;
-    }
- 
-    /* 3. Else traverse till the last node */
-    while (lastRef->next != NULL) {
-        lastRef = lastRef->next;
+        linkedListHead = newNode;
+    } else {   
+        /* 3. Else traverse till the last node */
+        while (lastRef->next != NULL) {
+            lastRef = lastRef->next;
+        }
     }
  
     /* 4. Change the next of last node */
@@ -772,15 +798,14 @@ void append(TCB** headRef, TCB* newNode) {
  
     /* 5. Make last node as previous of new node */
     newNode->prev = lastRef;
- 
     return;
 }
 
 // Add within list
 void insertAfterNode(TCB* prevNodeRef, TCB* newNode) {
-    /*1. check if the given prev_node is NULL */
+    /* 1. check if the given prev_node is NULL */
     if (prevNodeRef == NULL) {
-        printf("the given previous node cannot be NULL");
+        Serial.println("the given previous node cannot be NULL");
         return;
     }
   
@@ -803,14 +828,14 @@ void insertAfterNode(TCB* prevNodeRef, TCB* newNode) {
 /* Function to delete a node in a Doubly Linked List.
    head_ref --> pointer to head node pointer.
    del  -->  pointer to node to be deleted. */
-void deleteNode(TCB** headRef, TCB* del) {
+void deleteNode(TCB* del) {
   /* base case */
-  if (*headRef == NULL || del == NULL)
+  if (linkedListHead == NULL || del == NULL)
     return;
  
   /* If node to be deleted is head node */
-  if (*headRef == del) {
-    *headRef = del->next;
+  if (linkedListHead == del) {
+    linkedListHead = del->next;
   }
  
   /* Change next only if node to be deleted is NOT the last node */
