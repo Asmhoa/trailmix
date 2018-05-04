@@ -9,14 +9,16 @@
 
 #include <TimerThree.h> // SYSTEM TICK
 
-// Updated during interrupt service routines
-
-volatile int unoCounter = 0;
+int unoCounter = 0;
 
 /* SERIAL COMMUNICATIONS CONSTANT */
-#define START_MESSAGE ">"
-#define END_TERM ","
-#define END_MESSAGE "<"
+#define START_MESSAGE '>'
+#define END_TERM ','
+#define END_MESSAGE '<'
+
+char requestingTaskID = 0;
+char requestedFunction = 0;
+int incomingData = 0;
 
 /* INITIALIZATION - SETUP TFT DISPLAY */
 #define LCD_CS A3 // Chip Select goes to Analog 3
@@ -135,24 +137,6 @@ struct DataForCommsStruct {
     unsigned char* prCorrectedPtr;
 }; typedef struct DataForCommsStruct CommsTaskData;
 
-// TODO :- move to UNO
-// Arrays containing changes in temp and pulse, will be switched
-// when upper/lower limits are hit. 0th elements are called at Even
-// function calls.
-int tempChange[2] = {-2, 1}; // initially falling towards 15
-int pulseChange[2] = {1, -3}; // initially falling towards 15
-
-// Initially both temperature and pulse are very high and must keep 
-// falling until they cross 50 and 40 respectively before their 
-// standard boundaries can work.
-bool tempCrossedFifty = false;
-bool pulseCrossedForty = false;
-
-// Systolic completion
-bool systolicComplete = false;
-// Diastolic completion
-bool diastolicComplete = false;
-// END TODO
 
 
 /* INITIALIZATION - MAKE INSTANCES OF TCB */
@@ -174,21 +158,31 @@ CommsTaskData dataForComms;
 
 
 /* INITIALIZATION - FUNCTION DEFINITIONS */
-void requestMessage(String taskID, String funcToRun, void* data) {
-    if(taskID.equals("measureDataFunc")) {
-        // int* dataToSend = (int*) data;
-        // Serial.print(START_MESSAGE + taskID + END_TERM + funcToRun
-        //     + END_TERM);
-        // for(int i = 0; i < 4; i++) {
-        //     Serial.print(*(dataToSend + i) + END_TERM);
-        // }
-        // Serial.print(END_MESSAGE);
-    } else if (taskID.equals("computeDataFunc")) {
+void requestMessage(String taskID, String funcToRun, String data) {
+    Serial1.println(START_MESSAGE + taskID + END_TERM + funcToRun + END_TERM
+        + data + END_MESSAGE);
+}
 
-    } else if (taskID.equals("annunciateDataFunc")) {
-        
-    } else if (taskID.equals("statusDataFunc")) {
-        
+void parseMessage() {
+    while(0 == Serial1.available()) {
+
+    }
+    //  read incoming byte from the mega
+    while(Serial1.available() > 0) {
+        char currChar = Serial1.read();
+        if ('>' == currChar) {
+            delay(20);
+            requestingTaskID = (char)Serial1.read();
+            Serial1.read(); //Read over terminator
+
+            delay(20);
+            requestedFunction = Serial1.read();
+            Serial1.read();
+
+            delay(20);
+            incomingData = Serial1.parseInt();
+            Serial1.read();
+        }
     }
 }
 
@@ -220,98 +214,31 @@ void measureDataFunc(void* data) {
     currDia = diastolicPressRawBuf[0];
     currPr = pulseRateRawBufTemp[0];
 
-    int dataToSend[] = {currTemp, currSys, currDia, currPr};
     // THIS IS WHERE COMMUNICATION SHOULD HAPPEN ------------------------------------------------------------
     // SEND REQUEST MESSAGE
-    requestMessage("measureDataFunc", "measureFromValues",
-        dataToSend);
+    requestMessage("M", "T", String(currTemp));
+    parseMessage();
+    currTemp = incomingData;
+    delay(100);
+    requestMessage("M", "S", String(currSys));
+    parseMessage();
+    currSys = incomingData;
+    delay(100);
+    requestMessage("M", "D", String(currDia));
+    parseMessage();
+    currDia = 5;
+    delay(100);
+    requestMessage("M", "P", String(currPr));
+    parseMessage();
+    currPr = 5;
+
+    char requestingTaskID = 0;
+    char requestedFunction = 0;
+    int incomingData = 0;
 
     // |/ UNO ---------------------------------------------------------------------------------------------------
-    /*
-    unsigned int systolicPressRawBuf[sizeBuf];
-    memcpy( systolicPressRawBuf, bloodPressRawBufTemp, 8);
-    unsigned int diastolicPressRawBuf[s8;
-    memcpy( diastolicPressRawBuf, bloodPressRawBufTemp + sizeBuf, sizeBuf);
-    */
-
-    if (currTemp < 50) {
-        tempCrossedFifty = true;   
-    }
+      
     
-    if (currPr < 40) {
-        pulseCrossedForty = true;
-    }
-    
-    /*
-    if (systolicComplete && diastolicComplete) {
-        systolicPressRaw = 80;
-        diastolicPressRaw = 80;
-        systolicComplete = false;
-        diastolicComplete = false;
-    }*/
-    
-    // Perform measurement every 5 counts
-    if (unoCounter % 5 == 0) {
-        
-        // Check if its an Even number of function call
-        bool even = (unoCounter % 2 == 0);
-        
-        // Temperature
-        if ((currTemp > 50 || currTemp < 15) && tempCrossedFifty) {
-            int temp = tempChange[0];
-            tempChange[0] = -1 * tempChange[1];
-            tempChange[1] = -1 * temp;
-        }
-        
-        if (even) {
-            currTemp += tempChange[0];
-        } else {
-            currTemp += tempChange[1];
-        }
-        
-        // Systolic: Resets to 80 at the end of sys-dias cycle
-        if (currSys <= 100) {
-            if (even) {
-                currSys += 3;
-            } else {
-                currSys--;
-            }
-        } else {
-            systolicComplete = true;
-            if(diastolicComplete) {
-                currSys = 20;
-                currDia = 80;
-                diastolicComplete = false;
-                systolicComplete = false;
-            }
-        }
-        
-        // Diastolic: Resets to 80 at the end of sys-dias cycle
-        if (currDia >= 40) {
-            if (even) {
-                currDia -= 2;
-            } else {
-                currDia++;
-            }
-        } else {
-            diastolicComplete = true;
-            
-        }        
-
-        // Pulse
-        if ((currPr > 40 || currPr < 15) && pulseCrossedForty) {
-            int temp = pulseChange[0];
-            pulseChange[0] = -1 * pulseChange[1];
-            pulseChange[1] = -1 * temp; 
-        }
-        if (even) {
-            currPr += pulseChange[0];
-        } else {
-            currPr += pulseChange[1];
-        }
-        
-        float low = currPr * 0.85;
-        float high = currPr * 1.15;
 
         // if((prMeasured < low ) || (prMeasured > high)) {
         //     currPr = prMeasured;
@@ -322,7 +249,7 @@ void measureDataFunc(void* data) {
         // RECEIVE RESPONSE MESSAGE:
         // 4 NEW CURR VALUES SHOULD BE RETURNED TO MEGA AT THIS POINT,
         // UPDATE CURR VALUES
-
+        
         
         // Update the buffer
         for(i = 0; i < sizeBuf - 1; i++) {
@@ -349,7 +276,6 @@ void measureDataFunc(void* data) {
                 *(dataStruct.bloodPressRawPtr + i) = diastolicPressRawBuf[i- sizeBuf];
             }
         }
-    }
 }
 
 void computeDataFunc(void* x) {
@@ -527,15 +453,15 @@ void statusDataFunc(void* x) {
     }
 }
 
-// Delay for 100ms and update counter/time on peripheral system
+// update counter/time on peripheral system
 void updateCounter(void) {
-    unoCounter++;
+    Serial1.println('U');
 }
 
 /* INITIALIZATION */
 void setup(void) {
     // Setup communication
-    // Serial1.begin(9600);
+    Serial1.begin(9600);
 
     // Initialise Timer3
     Timer3.initialize(1000000);
