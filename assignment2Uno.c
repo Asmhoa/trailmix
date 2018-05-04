@@ -116,74 +116,81 @@ void loop() {
 }
 
 void measureTemp(int currTemp) {
-    if (currTemp < 50) {
+    if(0 == unoCounter % 5) {
+        if (currTemp < 50) {
         tempCrossedFifty = true;   
-    }
+        }
 
-    if ((currTemp > 50 || currTemp < 15) && tempCrossedFifty) {
-        int temp = tempChange[0];
-        tempChange[0] = -1 * tempChange[1];
-        tempChange[1] = -1 * temp;
-    }
+        if ((currTemp > 50 || currTemp < 15) && tempCrossedFifty) {
+            int temp = tempChange[0];
+            tempChange[0] = -1 * tempChange[1];
+            tempChange[1] = -1 * temp;
+        }
 
-    if (even) {
-        currTemp += tempChange[0];
-    } else {
-        currTemp += tempChange[1];
+        if (even) {
+            currTemp += tempChange[0];
+        } else {
+            currTemp += tempChange[1];
+        }
     }
 }
 
 void measureSys(int currSys) {
-
-    // Systolic: Resets to 80 at the end of sys-dias cycle
-    if (currSys <= 100) {
-        if (even) {
-            currSys += 3;
+    if(0 == unoCounter % 5) {
+        // Systolic: Resets to 80 at the end of sys-dias cycle
+        if (currSys <= 100) {
+            if (even) {
+                currSys += 3;
+            } else {
+                currSys--;
+            }
         } else {
-            currSys--;
-        }
-    } else {
-        systolicComplete = true;
-        if(diastolicComplete) {
-            currSys = 20;
-            currDia = 80;
-            diastolicComplete = false;
-            systolicComplete = false;
+            systolicComplete = true;
+            if(diastolicComplete) {
+                currSys = 20;
+                currDia = 80;
+                diastolicComplete = false;
+                systolicComplete = false;
+            }
         }
     }
 }
 
 void measureDia(int currDia) {
-    // Diastolic: Resets to 80 at the end of sys-dias cycle
-    if (currDia >= 40) {
-        if (even) {
-            currDia -= 2;
+    if(0 == unoCounter % 5) {
+        // Diastolic: Resets to 80 at the end of sys-dias cycle
+        if (currDia >= 40) {
+            if (even) {
+                currDia -= 2;
+            } else {
+                currDia++;
+            }
         } else {
-            currDia++;
+            diastolicComplete = true;
+            
         }
-    } else {
-        diastolicComplete = true;
-        
     }
 }
 
 void measurePr(int currPr) {
-    if (currPr < 40) {
-        pulseCrossedForty = true;
-    }
+    if(0 == unoCounter % 5) {
+        if (currPr < 40) {
+            pulseCrossedForty = true;
+        }
 
-            // Pulse
-    if ((currPr > 40 || currPr < 15) && pulseCrossedForty) {
-        int temp = pulseChange[0];
-        pulseChange[0] = -1 * pulseChange[1];
-        pulseChange[1] = -1 * temp; 
+                // Pulse
+        if ((currPr > 40 || currPr < 15) && pulseCrossedForty) {
+            int temp = pulseChange[0];
+            pulseChange[0] = -1 * pulseChange[1];
+            pulseChange[1] = -1 * temp; 
+        }
+        if (even) {
+            currPr += pulseChange[0];
+        } else {
+            currPr += pulseChange[1];
+        }
+        
+        float low = currPr * 0.85;
+        float high = currPr * 1.15;
     }
-    if (even) {
-        currPr += pulseChange[0];
-    } else {
-        currPr += pulseChange[1];
-    }
-    
-    float low = currPr * 0.85;
-    float high = currPr * 1.15;
 }

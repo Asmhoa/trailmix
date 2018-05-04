@@ -6,10 +6,8 @@
 #include <stdbool.h>
 #include <Elegoo_GFX.h>    // Core graphics library
 #include <Elegoo_TFTLCD.h> // Hardware-specific library
-
+#include <TouchScreen.h>
 #include <TimerThree.h> // SYSTEM TICK
-
-int unoCounter = 0;
 
 /* SERIAL COMMUNICATIONS CONSTANT */
 #define START_MESSAGE '>'
@@ -44,6 +42,27 @@ int incomingData = 0;
 #define YELLOW  0xFFE0
 #define WHITE   0xFFFF
 #define ORANGE  0xFD40
+
+// Color definitions
+#define ILI9341_BLACK       0x0000      /*   0,   0,   0 */
+#define ILI9341_NAVY        0x000F      /*   0,   0, 128 */
+#define ILI9341_DARKGREEN   0x03E0      /*   0, 128,   0 */
+#define ILI9341_DARKCYAN    0x03EF      /*   0, 128, 128 */
+#define ILI9341_MAROON      0x7800      /* 128,   0,   0 */
+#define ILI9341_PURPLE      0x780F      /* 128,   0, 128 */
+#define ILI9341_OLIVE       0x7BE0      /* 128, 128,   0 */
+#define ILI9341_LIGHTGREY   0xC618      /* 192, 192, 192 */
+#define ILI9341_DARKGREY    0x7BEF      /* 128, 128, 128 */
+#define ILI9341_BLUE        0x001F      /*   0,   0, 255 */
+#define ILI9341_GREEN       0x07E0      /*   0, 255,   0 */
+#define ILI9341_CYAN        0x07FF      /*   0, 255, 255 */
+#define ILI9341_RED         0xF800      /* 255,   0,   0 */
+#define ILI9341_MAGENTA     0xF81F      /* 255,   0, 255 */
+#define ILI9341_YELLOW      0xFFE0      /* 255, 255,   0 */
+#define ILI9341_WHITE       0xFFFF      /* 255, 255, 255 */
+#define ILI9341_ORANGE      0xFD20      /* 255, 165,   0 */
+#define ILI9341_GREENYELLOW 0xAFE5      /* 173, 255,  47 */
+#define ILI9341_PINK        0xF81F
 
 #define MINPRESSURE 10
 #define MAXPRESSURE 1000
@@ -80,8 +99,8 @@ int currDia;
 int currPr;
 
 // index for flags (0 -> 4) : measure, compute, display, annunciate, status
-unsigned short addFlags[5] = {0};
-unsigned short removeFlags[5] = {0};
+unsigned short addFlags[6] = {0};
+unsigned short removeFlags[6] = {0};
 
 // Display
 unsigned char tempCorrectedBuf[8];
@@ -147,9 +166,9 @@ struct DataForDisplayStruct {
 }; typedef struct DataForDisplayStruct DisplayTaskData;
 
 struct DataForWarningAlarmStruct {
-    unsigned int* temperatureRawPtr;
-    unsigned int* bloodPressRawPtr;
-    unsigned int* pulseRateRawPtr;
+    unsigned char* temperatureCorrectedPtr;
+    unsigned char* bloodPressCorrectedPtr;
+    unsigned char* prCorrectedPtr;
     unsigned short* batteryStatePtr;
 }; typedef struct DataForWarningAlarmStruct WarningAlarmTaskData;
 
@@ -348,15 +367,32 @@ void computeDataFunc(void* x) {
 
 // ENTER THIS ONLY WHEN ANNUNCIATION IS PRESSED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 void displayDataFunc(void* x) {
-
-    if (unoCounter % 5 == 0) { // Every 5 seconds
         DisplayTaskData* data = (DisplayTaskData*)x;
         DisplayTaskData dataStruct = *data;
         tft.setTextSize(1);
         tft.fillScreen(BLACK);
         tft.setCursor(0, 0);
 
-        // Temperature
+    // Create buttons
+    menuButtons[0].initButton(&tft, 120, 55, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "MENU", 2);
+    menuButtons[0].drawButton();
+
+    menuButtons[1].initButton(&tft, 120, 125, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "ANNUNCIATION", 2);
+    menuButtons[1].drawButton();
+
+    menuButtons[2].initButton(&tft, 120, 195, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EXTRA MODE 1", 2);
+    menuButtons[2].drawButton();
+
+    menuButtons[3].initButton(&tft, 120, 265, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EXTRA MODE 2", 2);
+    menuButtons[3].drawButton();
+}
+
+void annunciateDataFunc(void* x) {
+    // Dereferencing void pointer to WarningStruct
+    WarningAlarmTaskData* data = (WarningAlarmTaskData*)x;
+    WarningAlarmTaskData dataStruct = *data;
+    
+    // Temperature
         tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
         if (tempHigh) {
             tft.setTextColor(RED); // Add acknowledgement event??
@@ -404,16 +440,9 @@ void displayDataFunc(void* x) {
                     AcknowledgeButton.press(false);  // tell the button it is NOT pressed
             }
         }
-    }
-}
 
-void annunciateDataFunc(void* x) {
-    // Dereferencing void pointer to WarningStruct
-    WarningAlarmTaskData* data = (WarningAlarmTaskData*)x;
-    WarningAlarmTaskData dataStruct = *data;
-    
     // check temperature:
-    double normalizedTemp = 5 + 0.75 * *dataStruct.temperatureRawPtr;
+    double normalizedTemp = *dataStruct.temperatureCorrectedPtr;
     if (normalizedTemp < 36.1 || normalizedTemp > 37.8) {
         // TURN TEXT RED
         tempOutOfRange = 1;
@@ -433,7 +462,7 @@ void annunciateDataFunc(void* x) {
     // unhealthy systolic pressures. 
     // SysPressure > 130 == High blood pressure
     // SysPressure > 160 == CALL A DOCTOR
-    int normalizedSystolic = 9 + 2 * *dataStruct.bloodPressRawPtr;
+    int normalizedSystolic = *dataStruct.bloodPressCorrectedPtr;
     if (normalizedSystolic > 130) {
         // TURN TEXT RED
         bpOutOfRange = 1;
@@ -453,7 +482,7 @@ void annunciateDataFunc(void* x) {
         User can acknowledge it to DISABLE INTERRUPT
     */
 
-    double normalizedDiastolic = 6 + 1.5 * *dataStruct.bloodPressRawPtr;
+    double normalizedDiastolic = *(dataStruct.bloodPressCorrectedPtr + 8);
     if (normalizedDiastolic > 90) {
         // TURN TEXT RED
         bpOutOfRange = 1;
@@ -477,7 +506,7 @@ void annunciateDataFunc(void* x) {
             User can acknowledge it to DISABLE INTERRUPT
         */
 
-    int normalizedPulse = 8 + 3 * *dataStruct.pulseRateRawPtr;
+    int normalizedPulse = *dataStruct.prCorrectedPtr;
     if (normalizedPulse < 60 || normalizedPulse > 100) {
         pulseOutOfRange = 1;
         if (normalizedPulse < 30) {
@@ -519,24 +548,9 @@ void statusDataFunc(void* x) {
     }
 }
 
-<<<<<<< HEAD
-void keyPadFunc(void* x) {
+void KeypadDataFunc(void* x) {
     KeypadTaskData* data = (KeypadTaskData*)x;
     KeypadTaskData dataStruct = *data;
-
-    // Create buttons
-    menuButtons[0].initButton(&tft, 120, 55, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "MENU", 2);
-    menuButtons[0].drawButton();
-
-    menuButtons[1].initButton(&tft, 120, 125, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "ANNUNCIATION", 2);
-    menuButtons[1].drawButton();
-
-    menuButtons[2].initButton(&tft, 120, 195, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EXTRA MODE 1", 2);
-    menuButtons[2].drawButton();
-
-    menuButtons[3].initButton(&tft, 120, 265, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EXTRA MODE 2", 2);
-    menuButtons[3].drawButton();
-
 
     bool staySensingPress = true;
 
@@ -562,7 +576,7 @@ void keyPadFunc(void* x) {
                 } else if (b == 1) { // Annunciate
                     staySensingPress = false;
                     tft.fillScreen(BLACK);
-
+                    // Setting flag in schedule 
 
                 } else { // Nothing for now
 
@@ -630,9 +644,6 @@ void menuView() {
 }
 
 // Delay for 100ms and update counter/time on peripheral system
-=======
-// update counter/time on peripheral system
->>>>>>> 639720dc44ecf5b1f3ee5e18de5685b93bad9d4f
 void updateCounter(void) {
     Serial1.println('U');
 }
@@ -735,9 +746,9 @@ void setup(void) {
 
     // WarningAlarm
     WarningAlarmTaskData dataForWarningAlarmTMP;
-    dataForWarningAlarmTMP.temperatureRawPtr = temperatureRawBuf;
-    dataForWarningAlarmTMP.bloodPressRawPtr = bloodPressRawBuf;
-    dataForWarningAlarmTMP.pulseRateRawPtr = pulseRateRawBuf;
+    dataForWarningAlarmTMP.temperatureCorrectedPtr = tempCorrectedBuf;
+    dataForWarningAlarmTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
+    dataForWarningAlarmTMP.prCorrectedPtr = pulseRateCorrectedBuf;
     dataForWarningAlarmTMP.batteryStatePtr = &batteryState;
     dataForWarningAlarm = dataForWarningAlarmTMP;
 
@@ -801,6 +812,14 @@ void setup(void) {
     StatusTaskTMP.prev = NULL;
     StatusTask = StatusTaskTMP;
 
+    // Keypad
+    TCB KeypadTaskTMP;
+    KeypadTaskTMP.taskFuncPtr = &KeypadDataFunc;
+    KeypadTaskTMP.taskDataPtr = &dataForKeypad;
+    KeypadTaskTMP.next = NULL;
+    KeypadTaskTMP.prev = NULL;
+    KeypadTask = StatusTaskTMP;
+
     // NULL TCB
     TCB NullTaskTMP;
     NullTaskTMP.taskFuncPtr = NULL;
@@ -808,28 +827,13 @@ void setup(void) {
     NullTaskTMP.next = NULL;
     NullTaskTMP.prev = NULL;
     NullTask = NullTaskTMP;
- 
-    // PROPER LINKEDLIST SETUP --------- DO NOT DELETE
-    appendAtEnd(&MeasureTask);
-    appendAtEnd(&ComputeTask);
-    appendAtEnd(&DisplayTask);
-    appendAtEnd(&AnnunciateTask);
-    appendAtEnd(&StatusTask);
 
-    // Serial.println("done making linkedlist");
-
-    currPointer = linkedListHead;
 }
 
 // Modify this to traverse linkedList instead
 void loop(void) {
-    unsigned long start = micros(); 
     
-    
-
-
-
-    
+    scheduler();
     // LinkedList traversal
     if(currPointer != NULL) {
         TCB currentTask = *currPointer;
@@ -844,9 +848,19 @@ void loop(void) {
 }
 
 void scheduler() {
-    unsigned long start = micros();
+    // PROPER LINKEDLIST SETUP --------- DO NOT DELETE
+    appendAtEnd(&MeasureTask);
+    appendAtEnd(&ComputeTask);
+    appendAtEnd(&DisplayTask);
+    appendAtEnd(&AnnunciateTask);
+    appendAtEnd(&StatusTask);
+    appendAtEnd(&KeyPadTask);
+
+    // Serial.println("done making linkedlist");
+
+    currPointer = linkedListHead;
+
     while(currPointer != NULL) {
-        currPointer->taskFuncPtr(currPointer->taskDataPtr); // execute 1st task in the task que
         for(int i = 0; i < 5; i++) { // checks add task flags
             if(addFlags[i]) {
                 runTask(i, true); // insert task
@@ -867,37 +881,44 @@ void runTask(int taskID, bool insertTask) {
     switch(taskID) {
         case 0: 
             if(insertTask) {
-                insertAfterNode(&MeasureTask);
+                appendAtEnd(&MeasureTask);
             } else {
                 deleteNode(&MeasureTask);
             }
         break;
         case 1:
             if(insertTask) {
-                insertAfterNode(&ComputeTask);
+                appendAtEnd(&ComputeTask);
             } else {
                 deleteNode(&ComputeTask);
             }
         break;
         case 2:
             if(insertTask) {
-                insertAfterNode(&DisplayTask);
+                appendAtEnd(&DisplayTask);
             } else {
                 deleteNode(&DisplayTask);
             }
         break;
         case 3:
             if(insertTask) {
-                insertAfterNode(&AnnunciateTask);
+                appendAtEnd(&AnnunciateTask);
             } else {
                 deleteNode(&AnnunciateTask);
             }
         break;
         case 4:
             if(insertTask) {
-                insertAfterNode(&StatusTask);
+                appendAtEnd(&StatusTask);
             } else {
                 deleteNode(&StatusTask);
+            }
+        break;
+        case 5:
+            if(insertTask) {
+                appendAtEnd(&KeyPadTask);
+            } else {
+                deleteNode(&KeyPadTask);
             }
         break;
     }
