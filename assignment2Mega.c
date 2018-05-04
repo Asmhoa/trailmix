@@ -738,29 +738,29 @@ void setup(void) {
     appendAtEnd(&DisplayTask);
     appendAtEnd(&AnnunciateTask);
     appendAtEnd(&StatusTask);
-    Serial.println("done making linkedlist");
+    // Serial.println("done making linkedlist");
 
-    if(MeasureTask.prev == NULL) {
-        Serial.println("null -> measure");
-    }
-    if(MeasureTask.next == &ComputeTask) {
-        Serial.println("measure -> compute");
-    }
-    if(ComputeTask.prev == &MeasureTask) {
-        Serial.println("compute -> measure");
-    }
-    if(ComputeTask.next == &DisplayTask) {
-        Serial.println("compute -> display");
-    }
-    if(DisplayTask.next == &AnnunciateTask) {
-        Serial.println("display -> annunciate");
-    }
-    if(AnnunciateTask.next == &StatusTask) {
-        Serial.println("annunciate -> status");
-    }
-    if(linkedListHead == &MeasureTask) {
-        Serial.println("linked = measuretask");
-    }
+    // if(MeasureTask.prev == NULL) {
+    //     Serial.println("null -> measure");
+    // }
+    // if(MeasureTask.next == &ComputeTask) {
+    //     Serial.println("measure -> compute");
+    // }
+    // if(ComputeTask.prev == &MeasureTask) {
+    //     Serial.println("compute -> measure");
+    // }
+    // if(ComputeTask.next == &DisplayTask) {
+    //     Serial.println("compute -> display");
+    // }
+    // if(DisplayTask.next == &AnnunciateTask) {
+    //     Serial.println("display -> annunciate");
+    // }
+    // if(AnnunciateTask.next == &StatusTask) {
+    //     Serial.println("annunciate -> status");
+    // }
+    // if(linkedListHead == &MeasureTask) {
+    //     Serial.println("linked = measuretask");
+    // }
 
     currPointer = linkedListHead;
 
@@ -773,10 +773,10 @@ void loop(void) {
     // if(currPointer == NULL) {
     //         Serial.println("n");
     // }
-    while (currPointer != NULL) {
-        Serial.println("h");
-        currPointer = currPointer->next;
-    }
+    // while (currPointer != NULL) {
+    //     Serial.println("h");
+    //     currPointer = currPointer->next;
+    // }
     
 
     /* SCHEDULE 
@@ -790,18 +790,21 @@ void loop(void) {
 
     for(int i = 0; i < NUM_TASKS; i++) { // QUEUE
         tasksArray[i].taskFuncPtr(tasksArray[i].taskDataPtr);
-    }
+    } */
 
     // LinkedList traversal
-    // (*((*currPointer).taskFuncPtr))((*currPointer).taskDataPtr);
-    // currPointer->taskFuncPtr(currPointer->taskDataPtr);
+    if(currPointer != NULL) {
+        TCB currentTask = *currPointer;
+        // currentTask.taskFuncPtr(currentTask.taskDataPtr);
+        currPointer->taskFuncPtr(currPointer->taskDataPtr);
+    }
+    // 
 
-    // if (currPointer->next == NULL) {
-    //     currPointer = linkedListHead;
-    // } else {
-    //     currPointer = currPointer->next;
-    // }
-    //updateCounter(); */
+    if (currPointer->next == NULL) {
+        // currPointer = linkedListHead;
+    } else {
+        currPointer = currPointer->next;
+    }
 }
 
 
