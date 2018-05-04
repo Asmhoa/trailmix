@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <TimerOne.h>
 
 #define START_MESSAGE '>'
 #define END_TERM ','
@@ -22,6 +23,13 @@ int currTemp = 0;
 int currSys = 0;
 int currDia = 0;
 int currPr = 0;
+
+// Fields for Analog Pulse Reader
+int sensorPin;    
+int sensorValue;
+int pulseCount;
+int pulseRate;
+float voltageReading;
 
 // Arrays containing changes in temp and pulse, will be switched
 // when upper/lower limits are hit. 0th elements are called at Even
@@ -45,6 +53,8 @@ void measureTemp(int currTemp);
 void measureSys(int currSys);
 void measureDia(int currDia);
 void measurePr(int currPr);
+void readFromFnGen();
+int updatePulseRate();
 
 void respondMessage(String taskID, String funcToRun, String data) {
     Serial.println(START_MESSAGE + taskID + END_TERM + funcToRun + END_TERM
@@ -75,9 +85,19 @@ void parseMessage() {
 
 void setup() {
     Serial.begin(9600);
+
+    // Setup for Analog Pulse Reader
+    sensorPin = A0;    // select the input pin for the potentiometer
+    pulseCount = 0;
+    voltageReading = 0;
+    pulseRate = 0;
 }
 
 void loop() {
+
+    // READ ANALOG VOLTAGE READING 
+    readFromFnGen();  
+
     parseMessage();
     if(0 == strcmp(requestingTaskID, 'M')) { //Measure
         // Check if its an Even number of function call
@@ -85,19 +105,19 @@ void loop() {
         switch(requestedFunction) { 
             case 'T':
                 measureTemp(data);
-                respondMessage("M", "T", "6");
+                respondMessage("M", "T", String(currTemp);
                 break;
             case 'S':
                 measureSys(data);
-                respondMessage("M", "S", "5");
+                respondMessage("M", "S", String(currSys));
                 break;
             case 'D':
                 measureDia(data);
-                respondMessage("M", "D", "3");
+                respondMessage("M", "D", String(currDia));
                 break;
             case 'P':
                 measurePr(data);
-                respondMessage("M", "P", "2");
+                respondMessage("M", "P", String(currPr));
                 break;
         }
     } else if(0 == strcmp(requestingTaskID, 'C')) { //Compute
@@ -115,13 +135,13 @@ void loop() {
     even = false;
 }
 
-void measureTemp(int currTemp) {
+void measureTemp(int currTempMega) {
     if(0 == unoCounter % 5) {
-        if (currTemp < 50) {
+        if (currTempMega < 50) {
         tempCrossedFifty = true;   
         }
 
-        if ((currTemp > 50 || currTemp < 15) && tempCrossedFifty) {
+        if ((currTempMega > 50 || currTempMega < 15) && tempCrossedFifty) {
             int temp = tempChange[0];
             tempChange[0] = -1 * tempChange[1];
             tempChange[1] = -1 * temp;
@@ -135,10 +155,10 @@ void measureTemp(int currTemp) {
     }
 }
 
-void measureSys(int currSys) {
+void measureSys(int currSysMega) {
     if(0 == unoCounter % 5) {
         // Systolic: Resets to 80 at the end of sys-dias cycle
-        if (currSys <= 100) {
+        if (currSysMega <= 100) {
             if (even) {
                 currSys += 3;
             } else {
@@ -156,10 +176,10 @@ void measureSys(int currSys) {
     }
 }
 
-void measureDia(int currDia) {
+void measureDia(int currDiaMega) {
     if(0 == unoCounter % 5) {
         // Diastolic: Resets to 80 at the end of sys-dias cycle
-        if (currDia >= 40) {
+        if (currDiaMega >= 40) {
             if (even) {
                 currDia -= 2;
             } else {
@@ -172,25 +192,47 @@ void measureDia(int currDia) {
     }
 }
 
-void measurePr(int currPr) {
+void measurePr(int currPrMega) {
     if(0 == unoCounter % 5) {
-        if (currPr < 40) {
-            pulseCrossedForty = true;
-        }
+        // if (currPr < 40) {
+        //     pulseCrossedForty = true;
+        // }
 
-                // Pulse
-        if ((currPr > 40 || currPr < 15) && pulseCrossedForty) {
-            int temp = pulseChange[0];
-            pulseChange[0] = -1 * pulseChange[1];
-            pulseChange[1] = -1 * temp; 
-        }
-        if (even) {
-            currPr += pulseChange[0];
-        } else {
-            currPr += pulseChange[1];
-        }
+        //         // Pulse
+        // if ((currPr > 40 || currPr < 15) && pulseCrossedForty) {
+        //     int temp = pulseChange[0];
+        //     pulseChange[0] = -1 * pulseChange[1];
+        //     pulseChange[1] = -1 * temp; 
+        // }
+        // if (even) {
+        //     currPr += pulseChange[0];
+        // } else {
+        //     currPr += pulseChange[1];
+        // }
         
-        float low = currPr * 0.85;
-        float high = currPr * 1.15;
+        // float low = currPr * 0.85;
+        // float high = currPr * 1.15;
+
+        currPr = updatePulseRate();
     }
+}
+
+// Function generator to generate a 0-3.3v squarewave. Attach function generator
+// to A0 pin on Uno with a GPIO
+void readFromFnGen() {
+    // Set Amplitude to 1.950
+    // Set Offset to 650mV
+    voltageReading = analogRead(sensorPin) * (5.0 / 1023.0);
+    if (voltageReading >= 3) {
+        pulseCount++;
+    }
+}
+
+// Sends Mega a pulse rate measured every 5 seconds. 
+int updatePulseRate() {
+    pulseRate = pulseCount;
+
+    pulseCount = 0;
+    // SEND PULSERATE TO MEGA
+    return pulseRate;
 }
