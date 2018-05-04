@@ -176,6 +176,7 @@ CommsTaskData dataForComms;
 /* INITIALIZATION - FUNCTION DEFINITIONS */
 void requestMessage(String taskID, String funcToRun, void* data) {
     if(taskID.equals("measureDataFunc")) {
+        int* dataToSend = (int*) data;
         Serial.print(START_MESSAGE + taskID + END_TERM + funcToRun
             + END_TERM);
         for(int i = 0; i < 4; i++) {
