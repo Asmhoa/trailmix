@@ -709,26 +709,76 @@ void setup(void) {
 
     // Head is the start of the empty doubly linkedlist
     // Adding each task to the Double Linked List
-    appendAtEnd(MeasureTask);
-    appendAtEnd(ComputeTask);
-    appendAtEnd(DisplayTask);
-    appendAtEnd(AnnunciateTask);
-    appendAtEnd(StatusTask);
+    // appendAtEnd(MeasureTask);
+    // appendAtEnd(ComputeTask);
+    // appendAtEnd(DisplayTask);
+    // appendAtEnd(AnnunciateTask);
+    // appendAtEnd(StatusTask);
+
+    // Manually initialising linkedlist
+
+    //linkedListHead = &MeasureTask;
+
+   // MeasureTask.next = &ComputeTask;
+    //MeasureTask.prev = NULL;
+
+    //ComputeTask.next = &DisplayTask;
+    //ComputeTask.prev = &MeasureTask;
+
+    //DisplayTask.next = &AnnunciateTask;
+    //DisplayTask.prev = &ComputeTask;
+
+    //AnnunciateTask.next = &StatusTask;
+   // AnnunciateTask.prev = &DisplayTask;
+
+    // StatusTask.next = NULL;
+    // StatusTask.prev = &AnnunciateTask;
+    appendAtEnd(&MeasureTask);
+    appendAtEnd(&ComputeTask);
+    appendAtEnd(&DisplayTask);
+    appendAtEnd(&AnnunciateTask);
+    appendAtEnd(&StatusTask);
+    Serial.println("done making linkedlist");
+
+    if(MeasureTask.prev == NULL) {
+        Serial.println("null -> measure");
+    }
+    if(MeasureTask.next == &ComputeTask) {
+        Serial.println("measure -> compute");
+    }
+    if(ComputeTask.prev == &MeasureTask) {
+        Serial.println("compute -> measure");
+    }
+    if(ComputeTask.next == &DisplayTask) {
+        Serial.println("compute -> display");
+    }
+    if(DisplayTask.next == &AnnunciateTask) {
+        Serial.println("display -> annunciate");
+    }
+    if(AnnunciateTask.next == &StatusTask) {
+        Serial.println("annunciate -> status");
+    }
+    if(linkedListHead == &MeasureTask) {
+        Serial.println("linked = measuretask");
+    }
 
     currPointer = linkedListHead;
 
-    while (currPointer != NULL) {
-        Serial.println("h");
-        Serial.println(long(currPointer->prev,HEX));
-        Serial.println(long(currPointer->next,HEX));
-        currPointer = NULL;
-    }
+
 }
 
 // Modify this to traverse linkedList instead
 void loop(void) {
     unsigned long start = micros(); 
+    // if(currPointer == NULL) {
+    //         Serial.println("n");
+    // }
+    while (currPointer != NULL) {
+        Serial.println("h");
+        currPointer = currPointer->next;
+    }
     
+
     /* SCHEDULE 
     TCB tasksArray[NUM_TASKS];
     tasksArray[0] = MeasureTask;
@@ -740,7 +790,7 @@ void loop(void) {
 
     for(int i = 0; i < NUM_TASKS; i++) { // QUEUE
         tasksArray[i].taskFuncPtr(tasksArray[i].taskDataPtr);
-    }*/
+    }
 
     // LinkedList traversal
     // (*((*currPointer).taskFuncPtr))((*currPointer).taskDataPtr);
@@ -751,7 +801,7 @@ void loop(void) {
     // } else {
     //     currPointer = currPointer->next;
     // }
-    //updateCounter();
+    //updateCounter(); */
 }
 
 
@@ -775,10 +825,11 @@ void push(TCB newTCB) {
 }
 
 // Add to back
-void appendAtEnd(TCB newTCB) {
+void appendAtEnd(TCB* newNode) {
     // Set up second pointer to be moved to the end of the list, will be used in 3
-    TCB* newNode = &newTCB;
+    //TCB* newNode = newTCB;
     TCB* lastRef = linkedListHead;  
+
   
     /* 1. This new node is going to be the last node, so
           make next of it as NULL*/
@@ -790,16 +841,16 @@ void appendAtEnd(TCB newTCB) {
         newNode->prev = NULL;
         linkedListHead = newNode;
         return;
-    } else {   
-        /* 3. Else traverse till the last node */
-        while (lastRef->next != NULL) {
-            lastRef = lastRef->next;
-        }     
     }
- 
+
+    /* 3. Else traverse till the last node */
+    while (lastRef->next != NULL) {
+        lastRef = lastRef->next;
+    }     
+    
     /* 4. Change the next of last node */
     lastRef->next = newNode;
- 
+
     /* 5. Make last node as previous of new node */
     newNode->prev = lastRef;
 
