@@ -14,6 +14,8 @@
 #define END_TERM ','
 #define END_MESSAGE '<'
 
+int unoCounter = 0;
+uint16_t identifier = 0;
 char requestingTaskID = 0;
 char requestedFunction = 0;
 int incomingData = 0;
@@ -98,8 +100,8 @@ int currSys;
 int currDia;
 int currPr;
 
-// index for flags (0 -> 4) : measure, compute, display, annunciate, status
-unsigned short addFlags[6] = {0};
+// index for flags (0 -> 4) : measure, compute, display, annunciate, status, keypad
+unsigned short addFlags[6] = {1, 0, 1, 0, 1, 1};
 unsigned short removeFlags[6] = {0};
 
 // Display
@@ -197,7 +199,7 @@ TCB DisplayTask;
 TCB AnnunciateTask;
 TCB StatusTask;
 // Newly added Keypad task
-TCB KeyPadTask;
+TCB KeypadTask;
 
 TCB NullTask;
 
@@ -215,6 +217,8 @@ CommsTaskData dataForComms;
 /* INITIALIZATION - FUNCTION DEFINITIONS */
 void requestMessage(String taskID, String funcToRun, String data) {
     Serial1.println(START_MESSAGE + taskID + END_TERM + funcToRun + END_TERM
+        + data + END_MESSAGE);
+    Serial.println(START_MESSAGE + taskID + END_TERM + funcToRun + END_TERM
         + data + END_MESSAGE);
 }
 
@@ -271,22 +275,48 @@ void measureDataFunc(void* data) {
 
     // THIS IS WHERE COMMUNICATION SHOULD HAPPEN ------------------------------------------------------------
     // SEND REQUEST MESSAGE
-    requestMessage("M", "T", String(currTemp));
-    parseMessage();
-    currTemp = incomingData;
-    delay(100);
-    requestMessage("M", "S", String(currSys));
-    parseMessage();
-    currSys = incomingData;
-    delay(100);
-    requestMessage("M", "D", String(currDia));
-    parseMessage();
-    currDia = 5;
-    delay(100);
-    requestMessage("M", "P", String(currPr));
-    parseMessage();
-    currPr = 5;
-
+    switch(measurementSelection) {
+        case 0:
+            requestMessage("M", "T", String(currTemp));
+            parseMessage();
+            currTemp = incomingData;
+            break;
+        case 1:
+            requestMessage("M", "S", String(currSys));
+            parseMessage();
+            currSys = incomingData;
+            delay(100);
+            requestMessage("M", "D", String(currDia));
+            parseMessage();
+            currDia = incomingData;
+            break;
+        case 2:
+            requestMessage("M", "P", String(currPr));
+            parseMessage();
+            currPr = incomingData;
+            break;
+        case 3:
+            requestMessage("M", "T", String(currTemp));
+            parseMessage();
+            currTemp = incomingData;
+            delay(100);
+            requestMessage("M", "S", String(currSys));
+            parseMessage();
+            currSys = incomingData;
+            delay(100);
+            requestMessage("M", "D", String(currDia));
+            parseMessage();
+            currDia = incomingData;
+            delay(100);
+            requestMessage("M", "P", String(currPr));
+            parseMessage();
+            currPr = incomingData;
+            break;
+    }
+    // Serial.print("currTemp:"); Serial.println(currTemp);
+    // Serial.print("currSys:"); Serial.println(currSys);
+    // Serial.print("currDia:"); Serial.println(currDia);
+    // Serial.print("currPr:"); Serial.println(currPr);
     char requestingTaskID = 0;
     char requestedFunction = 0;
     int incomingData = 0;
@@ -331,9 +361,9 @@ void measureDataFunc(void* data) {
                 *(dataStruct.bloodPressRawPtr + i) = diastolicPressRawBuf[i- sizeBuf];
             }
         }
-
-    addFlags[1] = 1; // when the new data is being sent to compute
-    removeFlags[0] = 1;
+    
+    // Change Compute Flag to addTask when new data is measured
+    addFlags[1] = 1;
 }
 
 void computeDataFunc(void* x) {
@@ -361,7 +391,6 @@ void computeDataFunc(void* x) {
     // Computing and converting pulse rate to unsigned char*
     double correctedPr =  8 + 3 * rawPr;
     *dataStruct.prCorrectedPtr = correctedPr;
-    removeFlags[1] = 1;
 }
 
 
@@ -377,17 +406,19 @@ void displayDataFunc(void* x) {
     menuButtons[0].initButton(&tft, 120, 55, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "MENU", 2);
     menuButtons[0].drawButton();
 
-    menuButtons[1].initButton(&tft, 120, 125, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "ANNUNCIATION", 2);
+    menuButtons[1].initButton(&tft, 120, 125, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "OVERVIEW", 2);
     menuButtons[1].drawButton();
 
-    menuButtons[2].initButton(&tft, 120, 195, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EXTRA MODE 1", 2);
+    menuButtons[2].initButton(&tft, 120, 195, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EM1", 2);
     menuButtons[2].drawButton();
 
-    menuButtons[3].initButton(&tft, 120, 265, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EXTRA MODE 2", 2);
+    menuButtons[3].initButton(&tft, 120, 265, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EM2", 2);
     menuButtons[3].drawButton();
 }
 
 void annunciateDataFunc(void* x) {
+    measurementSelection = 3; // Get all values
+
     // Dereferencing void pointer to WarningStruct
     WarningAlarmTaskData* data = (WarningAlarmTaskData*)x;
     WarningAlarmTaskData dataStruct = *data;
@@ -418,33 +449,33 @@ void annunciateDataFunc(void* x) {
         tft.println("Battery: " + (String)*dataStruct.batteryStatePtr);
 
         // Acknowledge button
-        AcknowledgeButton.initButton(&tft, 120, 265, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "DISMISS", 2);
-        AcknowledgeButton.drawButton();
+        // AcknowledgeButton.initButton(&tft, 120, 265, 240, 70, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "DISMISS", 2);
+        // AcknowledgeButton.drawButton();
 
-        bool staySensingPress = true; 
-        while(staySensingPress) {
-            TSPoint p = ts.getPoint();
-            if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
-                // scale from 0->1023 to tft.width
-                p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-                p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
-            }
-            if (AcknowledgeButton.contains(p.x, p.y)) {
-                    AcknowledgeButton.press(true); // tell the button it is pressed
+        // bool staySensingPress = true; 
+        // while(staySensingPress) {
+        //     TSPoint p = ts.getPoint();
+        //     if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+        //         // scale from 0->1023 to tft.width
+        //         p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+        //         p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+        //     }
+        //     if (AcknowledgeButton.contains(p.x, p.y)) {
+        //             AcknowledgeButton.press(true); // tell the button it is pressed
 
-                    //Dismiss the alarm for five seconds
+        //             //Dismiss the alarm for five seconds
 
-                    //If signal value remains out of range for five seconds, resume alarm annunciation
+        //             //If signal value remains out of range for five seconds, resume alarm annunciation
 
-            } else {
-                    AcknowledgeButton.press(false);  // tell the button it is NOT pressed
-            }
-        }
+        //     } else {
+        //             AcknowledgeButton.press(false);  // tell the button it is NOT pressed
+        //     }
+        // }
 
     // check temperature:
     double normalizedTemp = *dataStruct.temperatureCorrectedPtr;
     if (normalizedTemp < 36.1 || normalizedTemp > 37.8) {
-        // TURN TEXT RED
+        // TURN TEXT RED---------
         tempOutOfRange = 1;
         if (normalizedTemp > 40) {
             tempHigh = true;
@@ -549,50 +580,58 @@ void statusDataFunc(void* x) {
 }
 
 void KeypadDataFunc(void* x) {
+    bool somethingPressed = false;
     KeypadTaskData* data = (KeypadTaskData*)x;
     KeypadTaskData dataStruct = *data;
+    while(!somethingPressed){
+            TSPoint p = ts.getPoint();
+            if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+                // scale from 0->1023 to tft.width
+                p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+                p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+            }
+       
+            // go thru all the buttons, checking if they were pressed
+            for (uint8_t b = 0; b < 4; b++) {
+                if (menuButtons[b].contains(p.x, p.y)) {
+                    // Serial.print("Pressing: "); Serial.println(b);
+                    menuButtons[b].press(true);  // tell the button it is pressed
+                    somethingPressed = true;
+                } else {
+                    menuButtons[b].press(false);  // tell the button it is NOT pressed
+                }
+            }
 
-    bool staySensingPress = true;
-
-    // add while loop
-    while (staySensingPress) {
-        TSPoint p = ts.getPoint();
-
-        if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
-            // scale from 0->1023 to tft.width
-            p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-            p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
-        }
-    
-        // go thru all the buttons, checking if they were pressed
         for (uint8_t b = 0; b < 4; b++) {
-            if (menuButtons[b].contains(p.x, p.y)) {
-                Serial.print("Pressing: "); Serial.println(b);
-                menuButtons[b].press(true);  // tell the button it is pressed
-                if (b == 0) { // Menu
-                    staySensingPress = false;
+            if (menuButtons[b].justPressed()) {
+                if(b == 3)  { // Menu
+                    tft.setCursor(0,0);
                     tft.fillScreen(BLACK);
+                    Serial.println("menu");
                     menuView();
-                } else if (b == 1) { // Annunciate
-                    staySensingPress = false;
+                    break;
+                } else if (b == 2) { // Annunciate
+                    tft.setCursor(0,0);
                     tft.fillScreen(BLACK);
                     // Setting flag in schedule 
-
-                } else { // Nothing for now
-
-                }
+                    addFlags[3] = 1;
+                    break;
+                } 
             } else {
-                menuButtons[b].press(false);  // tell the button it is NOT pressed
+
             }
         }
+
+        delay(100);
     }
 }
 
 void menuView() {
-    measureSelectButtons[0].initButton(&tft, 120, 60, 240, 100, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Blood Pressure", 2);
+
+    measureSelectButtons[0].initButton(&tft, 120, 160, 240, 100, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Temperature", 2);
     measureSelectButtons[0].drawButton();
 
-    measureSelectButtons[1].initButton(&tft, 120, 160, 240, 100, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Temperature", 2);
+    measureSelectButtons[1].initButton(&tft, 120, 60, 240, 100, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Blood Pressure", 2);
     measureSelectButtons[1].drawButton();
 
     measureSelectButtons[2].initButton(&tft, 120, 260, 240, 100, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Pulse Rate", 2);
@@ -613,23 +652,21 @@ void menuView() {
             if (measureSelectButtons[b].contains(p.x, p.y)) {
                 Serial.print("Pressing: "); Serial.println(b);
                 measureSelectButtons[b].press(true);  // tell the button it is pressed
-                if (b == 0) { // Blood Pressure
+                if (0 == b) { // Temperature
                     staySensingPress = false;
                     tft.fillScreen(BLACK);
-                    // Measure Blood Pressure
+                    measurementSelection = 0;
+                    // SEND REQUEST, SET FLAG ADDTASK FOR MEASURE
+
+                } else if (1 == b) { // Blood pressure
+                    staySensingPress = false;
+                    tft.fillScreen(BLACK);
                     // AND THEN go into annunciation, blood pressure should now be updated
-
+                    measurementSelection = 1;
                     // SEND REQUEST, SET FLAG ADDTASK FOR MEASURE
 
-                } else if (b == 1) { // Temperature
-                    staySensingPress = false;
-                    tft.fillScreen(BLACK);
-                    // Measure Temperature
-                    // AND THEN go into annunciation, temperature should now be updated
-
-                    // SEND REQUEST, SET FLAG ADDTASK FOR MEASURE
-
-                } else { // Measure pulse rate, and THEN go into annunciation, PR should now be updated 
+                } else if (2 == b) { // Measure pulse rate, and THEN go into annunciation, PR should now be updated 
+                    measurementSelection = 2;
                     staySensingPress = false;
                     tft.fillScreen(BLACK);
 
@@ -641,11 +678,16 @@ void menuView() {
             }
         }
     }
+    addFlags[0] = 1;
 }
 
 // Delay for 100ms and update counter/time on peripheral system
 void updateCounter(void) {
     Serial1.println('U');
+    unoCounter++;
+    if(0 == unoCounter % 2) {
+        addFlags[5] = 1;
+    }
 }
 
 /* INITIALIZATION */
@@ -672,7 +714,7 @@ void setup(void) {
 
     tft.reset();
 
-    uint16_t identifier = tft.readID();
+    identifier = tft.readID();
     if(identifier == 0x9325) {
         Serial.println(F("Found ILI9325 LCD driver"));
     } else if(identifier == 0x9328) {
@@ -818,7 +860,7 @@ void setup(void) {
     KeypadTaskTMP.taskDataPtr = &dataForKeypad;
     KeypadTaskTMP.next = NULL;
     KeypadTaskTMP.prev = NULL;
-    KeypadTask = StatusTaskTMP;
+    KeypadTask = KeypadTaskTMP;
 
     // NULL TCB
     TCB NullTaskTMP;
@@ -827,52 +869,56 @@ void setup(void) {
     NullTaskTMP.next = NULL;
     NullTaskTMP.prev = NULL;
     NullTask = NullTaskTMP;
-
 }
 
 // Modify this to traverse linkedList instead
 void loop(void) {
-    
     scheduler();
-    // LinkedList traversal
-    if(currPointer != NULL) {
-        TCB currentTask = *currPointer;
-        currPointer->taskFuncPtr(currPointer->taskDataPtr);
-    }
-
-    if (currPointer->next == NULL) {
-        // currPointer = linkedListHead;
-    } else {
-        currPointer = currPointer->next;
-    }
 }
 
 void scheduler() {
     // PROPER LINKEDLIST SETUP --------- DO NOT DELETE
-    appendAtEnd(&MeasureTask);
-    appendAtEnd(&ComputeTask);
-    appendAtEnd(&DisplayTask);
-    appendAtEnd(&AnnunciateTask);
-    appendAtEnd(&StatusTask);
-    appendAtEnd(&KeyPadTask);
+    // appendAtEnd(&MeasureTask);
+    // appendAtEnd(&ComputeTask);
+    // appendAtEnd(&DisplayTask);
+    // appendAtEnd(&AnnunciateTask);
+    // appendAtEnd(&StatusTask);
+    // appendAtEnd(&KeyPadTask);
 
-    // Serial.println("done making linkedlist");
+    // if(0 == unoCounter % 5) {
+    //     for(int i = 0; i < 6; i++) { // checks add task flags
+    //         if(addFlags[i]) {
+    //             runTask(i, true); // insert task
+    //             addFlags[i] = 0;
+    //             removeFlags[i] = 1;
+    //         }
+    //     }
+    // } else {
+    //     if(addFlags[3]) {
+    //         runTask(3, true); // insert task
+    //         addFlags[3] = 0;
+    //         removeFlags[3] = 1;
+    //     }
+    // }
 
+    // MEASURE
+    measurementSelection = 3;
+    runTask(0, true);
     currPointer = linkedListHead;
+    // while(currPointer != NULL) {
+    //     Serial.println("g");
+    //     currPointer = currPointer->next;
+    // }
 
     while(currPointer != NULL) {
-        for(int i = 0; i < 5; i++) { // checks add task flags
-            if(addFlags[i]) {
-                runTask(i, true); // insert task
-                addFlags[i] = 0;
-            }
-        }
+        currPointer->taskFuncPtr(currPointer->taskDataPtr);
+        Serial.println("Some task run");
         currPointer = currPointer->next; // moves current pointer to the next task
-        for(int i = 0; i < 5; i++) { // checks remove task flags
-            if(removeFlags[i]) {
-                runTask(i, false); // remove task
-                removeFlags[i] = 0;
-            }
+    }
+    for(int i = 0; i < 6; i++) { // checks remove task flags
+        if(removeFlags[i]) {
+            runTask(i, false); // remove task
+            removeFlags[i] = 0;
         }
     }
 }
@@ -882,43 +928,55 @@ void runTask(int taskID, bool insertTask) {
         case 0: 
             if(insertTask) {
                 appendAtEnd(&MeasureTask);
+                Serial.println("MeasureTask added");
             } else {
                 deleteNode(&MeasureTask);
+                Serial.println("MeasureTask deleted");
             }
         break;
         case 1:
             if(insertTask) {
                 appendAtEnd(&ComputeTask);
+                Serial.println("ComputeTask added");
             } else {
                 deleteNode(&ComputeTask);
+                Serial.println("ComputeTask deleted");
             }
         break;
         case 2:
             if(insertTask) {
                 appendAtEnd(&DisplayTask);
+                Serial.println("DisplayTask added");
             } else {
                 deleteNode(&DisplayTask);
+                Serial.println("DisplayTask deleted");
             }
         break;
         case 3:
             if(insertTask) {
                 appendAtEnd(&AnnunciateTask);
+                Serial.println("AnnunciateTask added");
             } else {
                 deleteNode(&AnnunciateTask);
+                Serial.println("AnnunciateTask deleted");
             }
         break;
         case 4:
             if(insertTask) {
                 appendAtEnd(&StatusTask);
+                Serial.println("StatusTask added");
             } else {
                 deleteNode(&StatusTask);
+                Serial.println("StatusTask deleted");
             }
         break;
         case 5:
             if(insertTask) {
-                appendAtEnd(&KeyPadTask);
+                appendAtEnd(&KeypadTask);
+                Serial.println("KeyPadTask added");
             } else {
-                deleteNode(&KeyPadTask);
+                deleteNode(&KeypadTask);
+                Serial.println("KeyPadTask deleted");
             }
         break;
     }
