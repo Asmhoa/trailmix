@@ -87,10 +87,9 @@ Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 
-// ================================================ TFT ================================================================
+// ================================================ TFT END ================================================================
 
-
-/* INITIALIZATION - GLOBAL VARIABLES */
+// ============================================ GLOBAL VARIABLES ===========================================================
 // Measurements
 unsigned int temperatureRawBuf[8] = {75, 75, 75, 75, 75, 75, 75, 75};
 unsigned int bloodPressRawBuf[16] = {80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80};
@@ -191,7 +190,6 @@ struct DataForCommsStruct {
 }; typedef struct DataForCommsStruct CommsTaskData;
 
 
-
 /* INITIALIZATION - MAKE INSTANCES OF TCB */
 TCB MeasureTask;
 TCB ComputeTask;
@@ -200,7 +198,6 @@ TCB AnnunciateTask;
 TCB StatusTask;
 // Newly added Keypad task
 TCB KeypadTask;
-
 TCB NullTask;
 
 // Data
@@ -209,10 +206,10 @@ ComputeTaskData dataForCompute;
 DisplayTaskData dataForDisplay;
 WarningAlarmTaskData dataForWarningAlarm;
 StatusTaskData dataForStatus;
-    // For Keypad
 KeypadTaskData dataForKeypad;
 CommsTaskData dataForComms;
 
+// ============================================ GLOBAL VARIABLES END ===========================================================
 
 /* INITIALIZATION - FUNCTION DEFINITIONS */
 void requestMessage(String taskID, String funcToRun, String data) {
@@ -873,48 +870,34 @@ void setup(void) {
 
 // Modify this to traverse linkedList instead
 void loop(void) {
-    scheduler();
+    measureDataFunc(MeasureTaskData);
 }
 
 void scheduler() {
-    // PROPER LINKEDLIST SETUP --------- DO NOT DELETE
-    // appendAtEnd(&MeasureTask);
-    // appendAtEnd(&ComputeTask);
-    // appendAtEnd(&DisplayTask);
-    // appendAtEnd(&AnnunciateTask);
-    // appendAtEnd(&StatusTask);
-    // appendAtEnd(&KeyPadTask);
+    if(0 == unoCounter % 5) {
+        Serial.println("five seconds have passed");
+        for(int i = 0; i < 6; i++) { // checks add task flags
+            if(addFlags[i]) {
+                runTask(i, true); // insert task
+                addFlags[i] = 0;
+                removeFlags[i] = 1;
+            }
+        }
+    }
 
-    // if(0 == unoCounter % 5) {
-    //     for(int i = 0; i < 6; i++) { // checks add task flags
-    //         if(addFlags[i]) {
-    //             runTask(i, true); // insert task
-    //             addFlags[i] = 0;
-    //             removeFlags[i] = 1;
-    //         }
-    //     }
-    // } else {
-    //     if(addFlags[3]) {
-    //         runTask(3, true); // insert task
-    //         addFlags[3] = 0;
-    //         removeFlags[3] = 1;
-    //     }
-    // }
+    if(addFlags[3]) { // Should run regardless of time
+        runTask(3, true); // insert task
+        addFlags[3] = 0;
+        removeFlags[3] = 1;
+    }
 
-    // MEASURE
-    measurementSelection = 3;
-    runTask(0, true);
     currPointer = linkedListHead;
-    // while(currPointer != NULL) {
-    //     Serial.println("g");
-    //     currPointer = currPointer->next;
-    // }
-
     while(currPointer != NULL) {
         currPointer->taskFuncPtr(currPointer->taskDataPtr);
-        Serial.println("Some task run");
         currPointer = currPointer->next; // moves current pointer to the next task
+        Serial.println("Some task was run");
     }
+
     for(int i = 0; i < 6; i++) { // checks remove task flags
         if(removeFlags[i]) {
             runTask(i, false); // remove task

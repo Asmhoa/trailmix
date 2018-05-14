@@ -94,7 +94,6 @@ void setup() {
 }
 
 void loop() {
-
     // READ ANALOG VOLTAGE READING 
     readFromFnGen();  
 
@@ -105,7 +104,7 @@ void loop() {
         switch(requestedFunction) { 
             case 'T':
                 measureTemp(data);
-                respondMessage("M", "T", String(currTemp);
+                respondMessage("M", "T", String(currTemp));
                 break;
             case 'S':
                 measureSys(data);
@@ -116,7 +115,7 @@ void loop() {
                 respondMessage("M", "D", String(currDia));
                 break;
             case 'P':
-                measurePr(data);
+                measurePr();
                 respondMessage("M", "P", String(currPr));
                 break;
         }
@@ -136,7 +135,6 @@ void loop() {
 }
 
 void measureTemp(int currTempMega) {
-    if(0 == unoCounter % 5) {
         if (currTempMega < 50) {
         tempCrossedFifty = true;   
         }
@@ -152,11 +150,9 @@ void measureTemp(int currTempMega) {
         } else {
             currTemp += tempChange[1];
         }
-    }
 }
 
 void measureSys(int currSysMega) {
-    if(0 == unoCounter % 5) {
         // Systolic: Resets to 80 at the end of sys-dias cycle
         if (currSysMega <= 100) {
             if (even) {
@@ -173,11 +169,9 @@ void measureSys(int currSysMega) {
                 systolicComplete = false;
             }
         }
-    }
 }
 
 void measureDia(int currDiaMega) {
-    if(0 == unoCounter % 5) {
         // Diastolic: Resets to 80 at the end of sys-dias cycle
         if (currDiaMega >= 40) {
             if (even) {
@@ -189,11 +183,9 @@ void measureDia(int currDiaMega) {
             diastolicComplete = true;
             
         }
-    }
 }
 
-void measurePr(int currPrMega) {
-    if(0 == unoCounter % 5) {
+void measurePr() {
         // if (currPr < 40) {
         //     pulseCrossedForty = true;
         // }
@@ -213,8 +205,10 @@ void measurePr(int currPrMega) {
         // float low = currPr * 0.85;
         // float high = currPr * 1.15;
 
-        currPr = updatePulseRate();
-    }
+        // currPr = updatePulseRate();
+
+        currPr = unoCounter % 5 * 10;
+        pulseCount = 0;
 }
 
 // Function generator to generate a 0-3.3v squarewave. Attach function generator
@@ -229,10 +223,9 @@ void readFromFnGen() {
 }
 
 // Sends Mega a pulse rate measured every 5 seconds. 
-int updatePulseRate() {
-    pulseRate = pulseCount;
-
-    pulseCount = 0;
-    // SEND PULSERATE TO MEGA
-    return pulseRate;
-}
+// int updatePulseRate() {
+//     pulseRate = pulseCount;
+//     pulseCount = 0;
+//     // SEND PULSERATE TO MEGA
+//     return pulseRate;
+// }
