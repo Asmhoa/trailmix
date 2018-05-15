@@ -215,8 +215,6 @@ CommsTaskData dataForComms;
 void requestMessage(String taskID, String funcToRun, String data) {
     Serial1.println(START_MESSAGE + taskID + END_TERM + funcToRun + END_TERM
         + data + END_MESSAGE);
-    Serial.println(START_MESSAGE + taskID + END_TERM + funcToRun + END_TERM
-        + data + END_MESSAGE);
 }
 
 // This function should only be run after a request message statement
@@ -328,10 +326,10 @@ void measureDataFunc(void* data) {
     }
         
         
-    // Shift older values back in the buffer
+    // Shift older values back in the temporary buffer
     for(i = sizeBuf - 1; i > 0; i--) {
         temperatureRawBufTemp[i] = temperatureRawBufTemp[i - 1];
-        systolicPressRawBuf[i] = temperatureRawBufTemp[i - 1];
+        systolicPressRawBuf[i] = systolicPressRawBuf[i - 1];
         diastolicPressRawBuf[i] = diastolicPressRawBuf[i - 1];
         if(currPr != pulseRateRawBufTemp[0]) {
             pulseRateRawBufTemp[i] = pulseRateRawBufTemp[i - 1];
@@ -866,11 +864,13 @@ void setup(void) {
 
 // Modify this to traverse linkedList instead
 void loop(void) {
-    measureDataFunc(void* dataForMeasure);
+    measurementSelection = 2;
+    measureDataFunc(&dataForMeasure);
     for(int i = 0; i < 8; i++)
     {
-        Serial.print(temperatureRawBuf[i]);
+        Serial.print(pulseRateRawBuf[i]);
     }
+    Serial.println();
 }
 
 void scheduler() {

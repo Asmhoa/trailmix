@@ -49,7 +49,7 @@ bool systolicComplete = false;
 bool diastolicComplete = false;
 
 // Function prototypes
-void measureTemp(int currTemp);
+void measureTemp();
 void measureSys(int currSys);
 void measureDia(int currDia);
 void measurePr(int currPr);
@@ -95,7 +95,7 @@ void setup() {
 
 void loop() {
     // READ ANALOG VOLTAGE READING 
-    readFromFnGen();  
+    readFromFnGen();
 
     parseMessage();
     if(0 == strcmp(requestingTaskID, 'M')) { //Measure
@@ -103,7 +103,7 @@ void loop() {
         bool even = (unoCounter % 2 == 0);
         switch(requestedFunction) { 
             case 'T':
-                measureTemp(data);
+                measureTemp();
                 respondMessage("M", "T", String(currTemp));
                 break;
             case 'S':
@@ -134,41 +134,43 @@ void loop() {
     even = false;
 }
 
-void measureTemp(int currTempMega) {
+void measureTemp() {
     currTemp = 6;
 }
 
 void measureSys(int currSysMega) {
-        // Systolic: Resets to 80 at the end of sys-dias cycle
-        if (currSysMega <= 100) {
-            if (even) {
-                currSys += 3;
-            } else {
-                currSys--;
-            }
-        } else {
-            systolicComplete = true;
-            if(diastolicComplete) {
-                currSys = 20;
-                currDia = 80;
-                diastolicComplete = false;
-                systolicComplete = false;
-            }
-        }
+        // // Systolic: Resets to 80 at the end of sys-dias cycle
+        // if (currSysMega <= 100) {
+        //     if (even) {
+        //         currSys += 3;
+        //     } else {
+        //         currSys--;
+        //     }
+        // } else {
+        //     systolicComplete = true;
+        //     if(diastolicComplete) {
+        //         currSys = 20;
+        //         currDia = 80;
+        //         diastolicComplete = false;
+        //         systolicComplete = false;
+        //     }
+        // }
+        currSys = 4;
 }
 
 void measureDia(int currDiaMega) {
-        // Diastolic: Resets to 80 at the end of sys-dias cycle
-        if (currDiaMega >= 40) {
-            if (even) {
-                currDia -= 2;
-            } else {
-                currDia++;
-            }
-        } else {
-            diastolicComplete = true;
+        // // Diastolic: Resets to 80 at the end of sys-dias cycle
+        // if (currDiaMega >= 40) {
+        //     if (even) {
+        //         currDia -= 2;
+        //     } else {
+        //         currDia++;
+        //     }
+        // } else {
+        //     diastolicComplete = true;
             
-        }
+        // }
+        currDia = 9;
 }
 
 void measurePr() {
