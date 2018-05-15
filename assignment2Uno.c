@@ -135,21 +135,7 @@ void loop() {
 }
 
 void measureTemp(int currTempMega) {
-        if (currTempMega < 50) {
-        tempCrossedFifty = true;   
-        }
-
-        if ((currTempMega > 50 || currTempMega < 15) && tempCrossedFifty) {
-            int temp = tempChange[0];
-            tempChange[0] = -1 * tempChange[1];
-            tempChange[1] = -1 * temp;
-        }
-
-        if (even) {
-            currTemp += tempChange[0];
-        } else {
-            currTemp += tempChange[1];
-        }
+    currTemp = 6;
 }
 
 void measureSys(int currSysMega) {

@@ -219,10 +219,12 @@ void requestMessage(String taskID, String funcToRun, String data) {
         + data + END_MESSAGE);
 }
 
+// This function should only be run after a request message statement
 void parseMessage() {
     while(0 == Serial1.available()) {
-
+        // It freezes the system till the UNO responds
     }
+
     //  read incoming byte from the mega
     while(Serial1.available() > 0) {
         char currChar = Serial1.read();
@@ -243,16 +245,20 @@ void parseMessage() {
 }
 
 void measureDataFunc(void* data) {
+    // Dereference data to use it
     MeasureTaskData* dataToMeasure = (MeasureTaskData*)data;
     MeasureTaskData dataStruct = *dataToMeasure;
     
+    // Required temporary variables
     int i;
     const int sizeBuf = 8;
     unsigned int temperatureRawBufTemp[sizeBuf];
     unsigned int systolicPressRawBuf[sizeBuf];
     unsigned int diastolicPressRawBuf[sizeBuf];
     unsigned int pulseRateRawBufTemp[sizeBuf];
-    
+    int prMeasured;
+
+    // Populate temporary variables
     for(i = 0; i < sizeBuf * 2; i++) {
         if(i < sizeBuf) {
             temperatureRawBufTemp[i] = *(dataStruct.temperatureRawPtr + i);
@@ -261,17 +267,15 @@ void measureDataFunc(void* data) {
         } else {
             diastolicPressRawBuf[i- sizeBuf] = *(dataStruct.bloodPressRawPtr + i);
         }
-        
     }
     
-    // NEED TO SEND THESE FOUR NUMBERS OVER TO UNO ----------------------------------------------------------
+    // Get most recent values --- SEND THESE TO UNO
     currTemp = temperatureRawBufTemp[0];
     currSys = systolicPressRawBuf[0];
     currDia = diastolicPressRawBuf[0];
     currPr = pulseRateRawBufTemp[0];
 
-    // THIS IS WHERE COMMUNICATION SHOULD HAPPEN ------------------------------------------------------------
-    // SEND REQUEST MESSAGE
+    // Tell the Uno to do all the work
     switch(measurementSelection) {
         case 0:
             requestMessage("M", "T", String(currTemp));
@@ -307,57 +311,49 @@ void measureDataFunc(void* data) {
             delay(100);
             requestMessage("M", "P", String(currPr));
             parseMessage();
-            currPr = incomingData;
+            prMeasured = incomingData;
             break;
     }
-    // Serial.print("currTemp:"); Serial.println(currTemp);
-    // Serial.print("currSys:"); Serial.println(currSys);
-    // Serial.print("currDia:"); Serial.println(currDia);
-    // Serial.print("currPr:"); Serial.println(currPr);
-    char requestingTaskID = 0;
-    char requestedFunction = 0;
-    int incomingData = 0;
-
-    // |/ UNO ---------------------------------------------------------------------------------------------------
-      
     
+    // RESET message
+    requestingTaskID = 0;
+    requestedFunction = 0;
+    incomingData = 0;
 
-        // if((prMeasured < low ) || (prMeasured > high)) {
-        //     currPr = prMeasured;
-        // }
-
-        // ^ UNO ------------------------------------------------------------------------------------------
-
-        // RECEIVE RESPONSE MESSAGE:
-        // 4 NEW CURR VALUES SHOULD BE RETURNED TO MEGA AT THIS POINT,
-        // UPDATE CURR VALUES
+    float low = currPr * 0.85;
+    float high = currPr * 1.15;
+    
+    if((prMeasured < low ) || (prMeasured > high)) {
+        currPr = prMeasured;
+    }
         
         
-        // Update the buffer
-        for(i = 0; i < sizeBuf - 1; i++) {
-            temperatureRawBufTemp[i + 1] = temperatureRawBufTemp[i];
-            systolicPressRawBuf[i + 1] = temperatureRawBufTemp[i];
-            diastolicPressRawBuf[i + 1] = diastolicPressRawBuf[i];
-            if(currPr != pulseRateRawBufTemp[0]) {
-                pulseRateRawBufTemp[i + 1] = pulseRateRawBufTemp[i];
-            }
+    // Shift older values back in the buffer
+    for(i = sizeBuf - 1; i > 0; i--) {
+        temperatureRawBufTemp[i] = temperatureRawBufTemp[i - 1];
+        systolicPressRawBuf[i] = temperatureRawBufTemp[i - 1];
+        diastolicPressRawBuf[i] = diastolicPressRawBuf[i - 1];
+        if(currPr != pulseRateRawBufTemp[0]) {
+            pulseRateRawBufTemp[i] = pulseRateRawBufTemp[i - 1];
         }
+    }
 
-        temperatureRawBufTemp[0] = currTemp;
-        systolicPressRawBuf[0] = currSys;
-        diastolicPressRawBuf[0] = currDia;
-        pulseRateRawBufTemp[0] = currPr;
-        
-        // Update the data pointers
-        for(i = 0; i < sizeBuf * 2; i++) {
-            if(i < sizeBuf) {
-                *(dataStruct.temperatureRawPtr + i) = temperatureRawBufTemp[i];
-                *(dataStruct.bloodPressRawPtr + i) = systolicPressRawBuf[i];
-                *(dataStruct.pulseRateRawPtr + i) = pulseRateRawBufTemp[i];
-            } else {
-                *(dataStruct.bloodPressRawPtr + i) = diastolicPressRawBuf[i- sizeBuf];
-            }
+    // Update new values
+    temperatureRawBufTemp[0] = currTemp;
+    systolicPressRawBuf[0] = currSys;
+    diastolicPressRawBuf[0] = currDia;
+    pulseRateRawBufTemp[0] = currPr;
+    
+    // Update the data pointers
+    for(i = 0; i < sizeBuf * 2; i++) {
+        if(i < sizeBuf) {
+            *(dataStruct.temperatureRawPtr + i) = temperatureRawBufTemp[i];
+            *(dataStruct.bloodPressRawPtr + i) = systolicPressRawBuf[i];
+            *(dataStruct.pulseRateRawPtr + i) = pulseRateRawBufTemp[i];
+        } else {
+            *(dataStruct.bloodPressRawPtr + i) = diastolicPressRawBuf[i- sizeBuf];
         }
+    }
     
     // Change Compute Flag to addTask when new data is measured
     addFlags[1] = 1;
@@ -870,7 +866,11 @@ void setup(void) {
 
 // Modify this to traverse linkedList instead
 void loop(void) {
-    measureDataFunc(MeasureTaskData);
+    measureDataFunc(void* dataForMeasure);
+    for(int i = 0; i < 8; i++)
+    {
+        Serial.print(temperatureRawBuf[i]);
+    }
 }
 
 void scheduler() {
