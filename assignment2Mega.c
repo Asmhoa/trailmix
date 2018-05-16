@@ -19,6 +19,7 @@ uint16_t identifier = 0;
 char requestingTaskID = 0;
 char requestedFunction = 0;
 int incomingData = 0;
+const int sizeBuf = 8;
 
 
 // ================================================ TFT ================================================================
@@ -104,9 +105,9 @@ unsigned short addFlags[6] = {1, 0, 1, 0, 1, 1};
 unsigned short removeFlags[6] = {0};
 
 // Display
-unsigned char tempCorrectedBuf[8];
-unsigned char bloodPressCorrectedBuf[16];
-unsigned char pulseRateCorrectedBuf[8];
+double tempCorrectedBuf[8] = {0};
+double bloodPressCorrectedBuf[16] = {0};
+double pulseRateCorrectedBuf[8] = {0};
 
 // Status
 unsigned short batteryState = 200;
@@ -153,23 +154,23 @@ struct DataForComputeStruct {
     unsigned int* temperatureRawPtr;
     unsigned int* bloodPressRawPtr;
     unsigned int* pulseRateRawPtr;
-    unsigned char* temperatureCorrectedPtr;
-    unsigned char* bloodPressCorrectedPtr;
-    unsigned char* prCorrectedPtr;
+    double* temperatureCorrectedPtr;
+    double* bloodPressCorrectedPtr;
+    double* prCorrectedPtr;
     unsigned short* measurementSelectionPtr;
 }; typedef struct DataForComputeStruct ComputeTaskData;
 
 struct DataForDisplayStruct {
-    unsigned char* temperatureCorrectedPtr;
-    unsigned char* bloodPressCorrectedPtr;
-    unsigned char* prCorrectedPtr;
+    double* temperatureCorrectedPtr;
+    double* bloodPressCorrectedPtr;
+    double* prCorrectedPtr;
     unsigned short* batteryStatePtr;
 }; typedef struct DataForDisplayStruct DisplayTaskData;
 
 struct DataForWarningAlarmStruct {
-    unsigned char* temperatureCorrectedPtr;
-    unsigned char* bloodPressCorrectedPtr;
-    unsigned char* prCorrectedPtr;
+    double* temperatureCorrectedPtr;
+    double* bloodPressCorrectedPtr;
+    double* prCorrectedPtr;
     unsigned short* batteryStatePtr;
 }; typedef struct DataForWarningAlarmStruct WarningAlarmTaskData;
 
@@ -184,9 +185,9 @@ struct DataForKeypadStruct {
 
 struct DataForCommsStruct {
     unsigned short* measurementSelectionPtr;
-    unsigned char* temperatureCorrectedPtr;
-    unsigned char* bloodPressCorrectedPtr;
-    unsigned char* prCorrectedPtr;
+    double* temperatureCorrectedPtr;
+    double* bloodPressCorrectedPtr;
+    double* prCorrectedPtr;
 }; typedef struct DataForCommsStruct CommsTaskData;
 
 
@@ -249,7 +250,6 @@ void measureDataFunc(void* data) {
     
     // Required temporary variables
     int i;
-    const int sizeBuf = 8;
     unsigned int temperatureRawBufTemp[sizeBuf];
     unsigned int systolicPressRawBuf[sizeBuf];
     unsigned int diastolicPressRawBuf[sizeBuf];
@@ -367,21 +367,29 @@ void computeDataFunc(void* x) {
     int rawDia = *(dataStruct.bloodPressRawPtr + 8);
     int rawPr = *(dataStruct.pulseRateRawPtr);
 
-    // Computing and converting temperatureRaw to unsigned char* (Celcius)
+    // Shift older values back in the computed values buffer
+    for(int i = sizeBuf - 1; i > 0; i--) {
+        tempCorrectedBuf[i] = tempCorrectedBuf[i - 1];
+        bloodPressCorrectedBuf[i] = bloodPressCorrectedBuf[i - 1];
+        bloodPressCorrectedBuf[i + sizeBuf] = bloodPressCorrectedBuf[i + sizeBuf - 1];
+        pulseRateCorrectedBuf[i] = pulseRateCorrectedBuf[i - 1];
+    }
+
+    // Computing and converting temperatureRaw to unsigned char* (Celsius)
     double correctedTemp = 5 + 0.75 * rawTemp;
-    *dataStruct.temperatureCorrectedPtr = correctedTemp;
+    tempCorrectedBuf[0] = correctedTemp;
     
     // Computing and converting systolic pressure to unsigned char*
     double correctedSys = 9 + 2 * rawSys;
-    *dataStruct.bloodPressCorrectedPtr = correctedSys;
+    bloodPressCorrectedBuf[0] = correctedSys;
     
     // Computing and converting diastolic pressure to unsigned char*
     double correctedDia =  6 + 1.5 * rawDia;
-    *(dataStruct.bloodPressCorrectedPtr+8) = correctedDia;
+    bloodPressCorrectedBuf[sizeBuf] = correctedDia;
 
     // Computing and converting pulse rate to unsigned char*
     double correctedPr =  8 + 3 * rawPr;
-    *dataStruct.prCorrectedPtr = correctedPr;
+    pulseRateCorrectedBuf[0] = correctedPr;
 }
 
 
@@ -864,11 +872,16 @@ void setup(void) {
 
 // Modify this to traverse linkedList instead
 void loop(void) {
-    measurementSelection = 2;
     measureDataFunc(&dataForMeasure);
+    computeDataFunc(&dataForCompute);
     for(int i = 0; i < 8; i++)
     {
-        Serial.print(pulseRateRawBuf[i]);
+        Serial.print(temperatureRawBuf[i]);
+    }
+    Serial.println();
+    for(int i = 0; i < 8; i++)
+    {
+        Serial.print(tempCorrectedBuf[i]);
     }
     Serial.println();
 }
