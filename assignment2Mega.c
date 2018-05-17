@@ -410,12 +410,12 @@ void measureDataFunc(void* data) {
     }
     
     // Change Compute Flag to addTask when new data is measured
-    addFlags[1] = 1;
+    //addFlags[1] = 1;
     Serial.println("Measure task Ended");
 }
 
 void computeDataFunc(void* x) {
-    Serial.println("Compute task started");
+    Serial.println("!Compute task started");
     // Dereferencing void pointer to ComputeStruct
     ComputeTaskData* data = (ComputeTaskData*)x;
     ComputeTaskData dataStruct = *data;
@@ -453,7 +453,7 @@ void computeDataFunc(void* x) {
 
     double rrCorrected = 7 + 3 * rawResp;
     respirationRateCorrectedBuf[0] = rrCorrected;
-    Serial.println("Compute task ended");
+    Serial.println("?Compute task ended");
 }
 
 
@@ -588,8 +588,8 @@ void annunciateDataFunc(void* x) {
             Serial.println("BACK BUTTON IS PRESSED");
 
             // ADDFLAG FOR DISPLAY AND TOUCHPAD? NEED TO BRING USER BACK TO MAIN MENU
-            addFlags[0] = 1;
-            addFlags[1] = 1;
+            addFlags[0] = 0;
+            addFlags[1] = 0;
             addFlags[2] = 1;
             addFlags[3] = 0;
             addFlags[4] = 0;
@@ -1155,7 +1155,6 @@ void scheduler() {
     currPointer = linkedListHead;
     while(currPointer != NULL) {
         delay(500);
-        Serial.println("GOT HERE");
         if(currPointer == &MeasureTask) {
             Serial.println("currPointer == measureTask");
         } else if (currPointer == &ComputeTask) {
@@ -1168,7 +1167,8 @@ void scheduler() {
             Serial.println("currPointer == keypadTask");
         }
         delay(1000);
-        currPointer->taskFuncPtr(currPointer->taskDataPtr);
+       // currPointer->taskFuncPtr(currPointer->taskDataPtr);
+        (*currPointer->taskFuncPtr)(currPointer->taskDataPtr);
         Serial.println("TASK EXECUTED");
         delay(500);
         currPointer = currPointer->next; // moves current pointer to the next task
@@ -1180,6 +1180,13 @@ void scheduler() {
             removeFlags[i] = 0;
         }
     }
+
+     // FLAGS DEBUGGER
+    Serial.print("[");
+    for(int i = 0; i < 6; i++) {
+        Serial.print(addFlags[i]); Serial.print(" ");
+    }         
+    Serial.println("]");
 }
 
 void runTask(int taskID, bool insertTask) {
