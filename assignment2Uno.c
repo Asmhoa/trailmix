@@ -61,8 +61,8 @@ int currPr = 0;
 double currBp = 80;
 
 // Fields for Analog Pulse Reader
-int sensorPin;    
-int sensorValue;
+int pulseSensorPin;         // Pulse from Fn Gen
+int respirationSensorPin;   // Respiration from Fn Gen
 int pulseCount;
 int pulseRate;
 int respirationCount;
@@ -125,11 +125,11 @@ void setup() {
     Serial.begin(9600);
 
     // Setup for Analog Pulse Reader
-    pulseSensorPin = A1;    // Temperature
-    respirationSensorPin = A2;    
     pulseCount = 0;
     voltageReading = 0;
     pulseRate = 0;
+    pulseSensorPin = A1;    // Temperature
+    respirationSensorPin = A2;    
   
     // DEBOUNCE SWITCH
         pinMode(debounceButtonPin, INPUT);
@@ -146,6 +146,9 @@ void setup() {
         digitalWrite(greenLedPin, LOW);
         digitalWrite(redLedPin, LOW);
 }
+
+bool sysTaken = false;
+bool diaTaken = false;
 
 void loop() {   
     // START======================================== COMMS =====================================
@@ -278,40 +281,51 @@ void loop() {
         double tempSensorValue = analogRead(A0) / 12;
         // No longer needs measureTemp()
         currTemp = tempSensorValue;
-        Serial.print("TEMPERATURE: "); Serial.println(tempSensorValue);
     // END=================================== TEMPERATURE ANALOG (A0) ==========================
 
     // START=============================== BLOOD PRESSURE =====================================
         // Model systolic and diastolic blood pressures
         if ((currBp > 110) && (currBp < 150)) {
             
-            
+            if (!sysTaken) {
+                delayMicroseconds(5);
+                Serial.println("Delayed for 5ms, SYS taken");
+                sysTaken = true;
+            }
             currSys = currBp; // Taking the measurement
-            Timer1.detachInterrupt();
             
         } else if ((currBp > 50) && (currBp < 80)) {
+            
+            if (!diaTaken) {
+                delayMicroseconds(5);
+                Serial.println("Delayed for 5ms, DIAS taken");
+                diaTaken = true;
+            }
 
             currDia = currBp; // Taking the measurement
+        } else {
+            sysTaken = false;
+            diaTaken = false;
         }
     // END================================= BLOOD PRESSURE =====================================
 
-    // START=============================== PULSE RATE (A1) ====================================
+    // START=============================== PULSE RATE (A1, FN GEN) =============================
         // READ ANALOG VOLTAGE READING 
         readFromFnGen(pulseSensorPin);
         if (unoCounter % 5 == 0) { // Updates every 5 seconds?
             pulseRate = pulseCount; // Should I divide this by 5 seconds to get a moving average?
             pulseCount = 0;
         }
-    // END================================= PULSE RATE (A1) ====================================
+    // END================================= PULSE RATE (A1, FN GEN) =============================
 
-    // START=============================== RESPIRATION RATE (A2) ==============================
+    // START=============================== RESPIRATION RATE (A2, FN GEN) =======================
         // READ ANALOG VOLTAGE READING 
         readFromFnGen(respirationSensorPin);
         if (unoCounter % 5 == 0) { // Updates every 5 seconds?
             respirationRate = respirationCount; // Should I divide this by 5 seconds to get a moving average?
             respirationCount = 0;
         }
-    // END================================= RESPIRATION RATE (A2) ==============================
+    // END================================= RESPIRATION RATE (A2, FN GEN) =======================
 }
 
 // Function generator to generate a 0-3.3v squarewave. Attach function generator
