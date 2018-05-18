@@ -121,12 +121,14 @@ unsigned short batteryState = 200;
 
 // Alarms
 unsigned char bpOutOfRange = 0,
+    bpOutOfRange2 = 0,
     tempOutOfRange = 0,
     pulseOutOfRange = 0,
     rrOutOfRange = 0;
 
 // Warning
 bool bpHigh = false,
+    bpHigh2 = false,
     tempHigh = false,
     pulseLow = false,
     rrLow = false,
@@ -235,27 +237,29 @@ void requestMessage(String taskID, String funcToRun, String data) {
 
 // This function should only be run after a request message statement
 void parseMessage() {
-    // while(0 == Serial1.available()) {
-    //     // It freezes the system till the UNO responds
-    // }
+    while(0 == Serial1.available()) {
+        // It freezes the system till the UNO responds
+    }
 
-    // //  read incoming byte from the mega
-    // while(Serial1.available() > 0) {
-    //     char currChar = Serial1.read();
-    //     if ('>' == currChar) {
-    //         delay(20);
-    //         requestingTaskID = (char)Serial1.read();
-    //         Serial1.read(); //Read over terminator
+    //  read incoming byte from the mega
+    while(Serial1.available() > 0) {
+        char currChar = Serial1.read();
+        if ('>' == currChar) {
+            delay(20);
+            requestingTaskID = (char)Serial1.read();
+            Serial1.read(); //Read over terminator
 
-    //         delay(20);
-    //         requestedFunction = Serial1.read();
-    //         Serial1.read();
+            delay(20);
+            requestedFunction = Serial1.read();
+            Serial1.read();
 
-    //         delay(20);
-    //         incomingData = Serial1.parseInt();
-    //         Serial1.read();
-    //     }
-    // }
+            delay(20);
+            incomingData = Serial1.parseInt();
+            Serial1.read();
+
+            Serial.println(incomingData);
+        }
+    }
 }
 
 void measureDataFunc(void* data) {
@@ -525,6 +529,12 @@ void annunciateDataFunc(void* x) {
             tft.setTextColor(RED); // Add acknowledgement event??
         }
         tft.println("Systolic pressure: " + (String)*dataStruct.bloodPressCorrectedPtr + " mm Hg");
+        // Blood Pressure
+        bpOutOfRange2 ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
+        if (bpHigh2) { 
+            tft.setTextColor(RED); // Add acknowledgement event??
+        }
+        tft.println("Diastolic pressure: " + (String)*(dataStruct.bloodPressCorrectedPtr + 8) + " mm Hg");
     } else if (measurementSelection == 3) {
         // Temperature
         tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
@@ -546,6 +556,12 @@ void annunciateDataFunc(void* x) {
             tft.setTextColor(RED); // Add acknowledgement event??
         }
         tft.println("Systolic pressure: " + (String)*dataStruct.bloodPressCorrectedPtr + " mm Hg");
+        // Blood Pressure
+        bpOutOfRange2 ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
+        if (bpHigh2) { 
+            tft.setTextColor(RED); // Add acknowledgement event??
+        }
+        tft.println("Diastolic pressure: " + (String)*(dataStruct.bloodPressCorrectedPtr + 8) + " mm Hg");
 
         // Pulse
         pulseOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
@@ -677,17 +693,17 @@ void annunciateDataFunc(void* x) {
     double normalizedDiastolic = *(dataStruct.bloodPressCorrectedPtr + 8);
     if (normalizedDiastolic > 90) {
         // TURN TEXT RED
-        bpOutOfRange = 1;
+        bpOutOfRange2 = 1;
         if (normalizedDiastolic > 120) {
-            bpHigh = true;
+            bpHigh2 = true;
             // Trigger alarm event
 
         } else {
-            bpHigh = false;
+            bpHigh2 = false;
         }
     } else {
-        bpOutOfRange = 0;
-        bpHigh = false;
+        bpOutOfRange2 = 0;
+        bpHigh2 = false;
     }
     
     // pulse rate 
@@ -872,28 +888,28 @@ void menuView() {
 
         for (uint8_t b = 0; b < 4; b++) {
             if (menuButtons[b].justPressed()) {
-                if (0 == b) { // Respiration
+                if (3 == b) { // Temperature
                     staySensingPress = false;
                     measurementSelection = 0;
                     addFlags[3] = 1;
                     // Measure REspiration
                     // Go to Annunciate
 
-                } else if (1 == b) { // Pulse
+                } else if (2 == b) { // BP
                     staySensingPress = false;
                     measurementSelection = 1;
                     addFlags[3] = 1;
                     // Measure Pulse
                     // Go to Annunciate
 
-                } else if (2 == b) { // Blood Pressure 
+                } else if (1 == b) { // Pulse
                     measurementSelection = 2;
                     staySensingPress = false;
                     addFlags[3] = 1;
                     // Measure BP
                     // Go to Annunciate
 
-                } else if (3 == b) { // Temperature 
+                } else if (0 == b) { // respiration
                     measurementSelection = 3;
                     staySensingPress = false;
                     addFlags[3] = 1;
@@ -1145,7 +1161,7 @@ void scheduler() {
 
     if(0 == unoCounter % 5) {
         // delay(5000);
-        Serial.println("five seconds have passed");
+        // Serial.println("five seconds have passed");
         for(int i = 0; i < 6; i++) { // checks add task flags
             // Serial.print(i); Serial.print(": "); Serial.println(addFlags[i]);
             if(addFlags[i]) {
@@ -1180,7 +1196,6 @@ void scheduler() {
         delay(1000);
        // currPointer->taskFuncPtr(currPointer->taskDataPtr);
         (*currPointer->taskFuncPtr)(currPointer->taskDataPtr);
-        Serial.println("TASK EXECUTED");
         delay(500);
         currPointer = currPointer->next; // moves current pointer to the next task
     }
@@ -1198,55 +1213,55 @@ void runTask(int taskID, bool insertTask) {
         case 0: 
             if(insertTask) {
                 appendAtEnd(&MeasureTask);
-                Serial.println("MeasureTask added");
+                // Serial.println("MeasureTask added");
             } else {
                 deleteNode(&MeasureTask);
-                Serial.println("MeasureTask deleted");
+                // Serial.println("MeasureTask deleted");
             }
         break;
         case 1:
             if(insertTask) {
                 appendAtEnd(&ComputeTask);
-                Serial.println("ComputeTask added");
+                // Serial.println("ComputeTask added");
             } else {
                 deleteNode(&ComputeTask);
-                Serial.println("ComputeTask deleted");
+                // Serial.println("ComputeTask deleted");
             }
         break;
         case 2:
             if(insertTask) {
                 appendAtEnd(&DisplayTask);
-                Serial.println("DisplayTask added");
+                // Serial.println("DisplayTask added");
             } else {
                 deleteNode(&DisplayTask);
-                Serial.println("DisplayTask deleted");
+                // Serial.println("DisplayTask deleted");
             }
         break;
         case 3:
             if(insertTask) {
                 appendAtEnd(&AnnunciateTask);
-                Serial.println("AnnunciateTask added");
+                // Serial.println("AnnunciateTask added");
             } else {
                 deleteNode(&AnnunciateTask);
-                Serial.println("AnnunciateTask deleted");
+                // Serial.println("AnnunciateTask deleted");
             }
         break;
         case 4:
             if(insertTask) {
                 appendAtEnd(&StatusTask);
-                Serial.println("StatusTask added");
+                // Serial.println("StatusTask added");
             } else {
                 deleteNode(&StatusTask);
-                Serial.println("StatusTask deleted");
+                // Serial.println("StatusTask deleted");
             }
         break;
         case 5:
             if(insertTask) {
                 appendAtEnd(&KeypadTask);
-                Serial.println("KeyPadTask added");
+                // Serial.println("KeyPadTask added");
             } else {
                 deleteNode(&KeypadTask);
-                Serial.println("KeyPadTask deleted");
+                // Serial.println("KeyPadTask deleted");
             }
         break;
     }

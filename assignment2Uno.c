@@ -53,10 +53,9 @@ int data = 0;
 bool even = false;
 
 // Declare variables
-int currTemp = 75;
+int currTemp = 69;
 int currSys = 80;
 int currDia = 80;
-int currPr = 0;
 // BLOOD PRESSURE FOR CUFFS
 double currBp = 80;
 
@@ -90,7 +89,7 @@ bool diastolicComplete = false;
 void measureTemp();
 void measureSys(int currSys);
 void measureDia(int currDia);
-void measurePr(int currPr);
+void measurePr();
 void readFromFnGen();
 int updatePulseRate();
 
@@ -100,6 +99,10 @@ void respondMessage(String taskID, String funcToRun, String data) {
 }
 
 void parseMessage() {
+    while(0==Serial.available()) {
+
+    }
+    
     //  read incoming byte from the mega
     while(Serial.available() > 0) {
         char currChar = Serial.read();
@@ -199,140 +202,140 @@ void loop() {
         even = false;
     // END========================================== COMMS =====================================
 
-    // START================================= DEBOUNCE SWITCH ================================== 
-        // If LED on, incrementing blood pressure
-        // If LED off, demcrementing blood pressure
-        // read the state of the switch into a local variable:
-        int debounceReading = digitalRead(debounceButtonPin);
+    // // START================================= DEBOUNCE SWITCH ================================== 
+    //     // If LED on, incrementing blood pressure
+    //     // If LED off, demcrementing blood pressure
+    //     // read the state of the switch into a local variable:
+    //     int debounceReading = digitalRead(debounceButtonPin);
 
-        // check to see if you just pressed the button
-        // (i.e. the input went from LOW to HIGH), and you've waited long enough
-        // since the last press to ignore any noise:
+    //     // check to see if you just pressed the button
+    //     // (i.e. the input went from LOW to HIGH), and you've waited long enough
+    //     // since the last press to ignore any noise:
 
-        // If the switch changed, due to noise or pressing:
-        if (debounceReading != debounceLastButtonState) {
-            // reset the debouncing timer
-            lastDebounceTime = millis();
-        }
+    //     // If the switch changed, due to noise or pressing:
+    //     if (debounceReading != debounceLastButtonState) {
+    //         // reset the debouncing timer
+    //         lastDebounceTime = millis();
+    //     }
 
-        if ((millis() - lastDebounceTime) > debounceDelay) {
-            // whatever the reading is at, it's been there for longer than the debounce
-            // delay, so take it as the actual current state:
+    //     if ((millis() - lastDebounceTime) > debounceDelay) {
+    //         // whatever the reading is at, it's been there for longer than the debounce
+    //         // delay, so take it as the actual current state:
 
-            // if the button state has changed:
-            if (debounceReading != debounceButtonState) {
-            debounceButtonState = debounceReading;
+    //         // if the button state has changed:
+    //         if (debounceReading != debounceButtonState) {
+    //         debounceButtonState = debounceReading;
 
-            // only toggle the LED if the new button state is HIGH
-            if (debounceButtonState == HIGH) {
-                debounceLedState = !debounceLedState;
-                // Set Cuff Switch Boolean: Increment or Decrement mode
-                // Serial.println("Cuff Switched");
-                increOrDecre = !increOrDecre;
-            }
-            }
-        }
-        // set the LED:
-        digitalWrite(debounceledPin, debounceLedState);
+    //         // only toggle the LED if the new button state is HIGH
+    //         if (debounceButtonState == HIGH) {
+    //             debounceLedState = !debounceLedState;
+    //             // Set Cuff Switch Boolean: Increment or Decrement mode
+    //             // Serial.println("Cuff Switched");
+    //             increOrDecre = !increOrDecre;
+    //         }
+    //         }
+    //     }
+    //     // set the LED:
+    //     digitalWrite(debounceledPin, debounceLedState);
 
-        // save the reading. Next time through the loop, it'll be the lastButtonState:
-        debounceLastButtonState = debounceReading;
-    // END=================================== DEBOUNCE SWITCH ==================================
+    //     // save the reading. Next time through the loop, it'll be the lastButtonState:
+    //     debounceLastButtonState = debounceReading;
+    // // END=================================== DEBOUNCE SWITCH ==================================
 
-    // START================================== CUFF BUTTON ===================================== 
-        int reading = digitalRead(buttonPin);
+    // // START================================== CUFF BUTTON ===================================== 
+    //     int reading = digitalRead(buttonPin);
 
-        // check to see if you just pressed the button
-        // (i.e. the input went from LOW to HIGH), and you've waited long enough
-        // since the last press to ignore any noise:
+    //     // check to see if you just pressed the button
+    //     // (i.e. the input went from LOW to HIGH), and you've waited long enough
+    //     // since the last press to ignore any noise:
 
-        // If the switch changed, due to noise or pressing:
-        if (reading != lastButtonState) {
-            // reset the debouncing timer
-            lastDebounceTime2 = millis();
-        }
+    //     // If the switch changed, due to noise or pressing:
+    //     if (reading != lastButtonState) {
+    //         // reset the debouncing timer
+    //         lastDebounceTime2 = millis();
+    //     }
 
-        if ((millis() - lastDebounceTime2) > debounceDelay) {
-            // whatever the reading is at, it's been there for longer than the debounce
-            // delay, so take it as the actual current state:
+    //     if ((millis() - lastDebounceTime2) > debounceDelay) {
+    //         // whatever the reading is at, it's been there for longer than the debounce
+    //         // delay, so take it as the actual current state:
 
-            // if the button state has changed:
-            if (reading != buttonState) {
-                buttonState = reading;
+    //         // if the button state has changed:
+    //         if (reading != buttonState) {
+    //             buttonState = reading;
 
-                // only toggle the LED if the new button state is HIGH
-                if (buttonState == HIGH) {
-                    ledState = !ledState;
-                    // INCREMENT or DECREMENT CUFF pressure based on CUFF SWITCH BOOLEAN
-                    if (increOrDecre) {
-                    currBp = currBp * 1.1;
-                    } else {
-                    currBp = currBp * 0.9;
-                    }
-                }
-            }
-        }
+    //             // only toggle the LED if the new button state is HIGH
+    //             if (buttonState == HIGH) {
+    //                 ledState = !ledState;
+    //                 // INCREMENT or DECREMENT CUFF pressure based on CUFF SWITCH BOOLEAN
+    //                 if (increOrDecre) {
+    //                 currBp = currBp * 1.1;
+    //                 } else {
+    //                 currBp = currBp * 0.9;
+    //                 }
+    //             }
+    //         }
+    //     }
 
-        // set the LED:
-        if (increOrDecre) {
-            digitalWrite(greenLedPin, reading);
-        } else {
-            digitalWrite(redLedPin, reading);
-        }
+    //     // set the LED:
+    //     if (increOrDecre) {
+    //         digitalWrite(greenLedPin, reading);
+    //     } else {
+    //         digitalWrite(redLedPin, reading);
+    //     }
 
-        // save the reading. Next time through the loop, it'll be the lastButtonState:
-        lastButtonState = reading;
-    // END==================================== CUFF BUTTON ===================================== 
+    //     // save the reading. Next time through the loop, it'll be the lastButtonState:
+    //     lastButtonState = reading;
+    // // END==================================== CUFF BUTTON ===================================== 
 
-    // START================================= TEMPERATURE ANALOG (A0) ==========================
-        // read the input on analog pin 0:
-        double tempSensorValue = analogRead(A0) / 12;
-        // No longer needs measureTemp()
-        currTemp = 66;
-    // END=================================== TEMPERATURE ANALOG (A0) ==========================
+    // // START================================= TEMPERATURE ANALOG (A0) ==========================
+    //     // read the input on analog pin 0:
+    //     double tempSensorValue = analogRead(A0) / 12;
+    //     // No longer needs measureTemp()
+    //     currTemp = 66;
+    // // END=================================== TEMPERATURE ANALOG (A0) ==========================
 
-    // START=============================== BLOOD PRESSURE =====================================
-        // Model systolic and diastolic blood pressures
-        if ((currBp > 110) && (currBp < 150)) {
+    // // START=============================== BLOOD PRESSURE =====================================
+    //     // Model systolic and diastolic blood pressures
+    //     if ((currBp > 110) && (currBp < 150)) {
             
-            if (!sysTaken) {
-                delayMicroseconds(5);
-                //Serial.println("Delayed for 5ms, SYS taken");
-                sysTaken = true;
-            }
-            currSys = currBp; // Taking the measurement
+    //         if (!sysTaken) {
+    //             delayMicroseconds(5);
+    //             //Serial.println("Delayed for 5ms, SYS taken");
+    //             sysTaken = true;
+    //         }
+    //         currSys = currBp; // Taking the measurement
             
-        } else if ((currBp > 50) && (currBp < 80)) {
+    //     } else if ((currBp > 50) && (currBp < 80)) {
             
-            if (!diaTaken) {
-                delayMicroseconds(5);
-                //Serial.println("Delayed for 5ms, DIAS taken");
-                diaTaken = true;
-            }
+    //         if (!diaTaken) {
+    //             delayMicroseconds(5);
+    //             //Serial.println("Delayed for 5ms, DIAS taken");
+    //             diaTaken = true;
+    //         }
 
-            currDia = currBp; // Taking the measurement
-        } else {
-            sysTaken = false;
-            diaTaken = false;
-        }
-    // END================================= BLOOD PRESSURE =====================================
+    //         currDia = currBp; // Taking the measurement
+    //     } else {
+    //         sysTaken = false;
+    //         diaTaken = false;
+    //     }
+    // // END================================= BLOOD PRESSURE =====================================
 
-    // START=============================== PULSE RATE (A1, FN GEN) =============================
-        // READ ANALOG VOLTAGE READING 
-        if (unoCounter % 5 == 0) { // Updates every 5 seconds?
-            currPulseRate = pulseCount; // Should I divide this by 5 seconds to get a moving average?
-            pulseCount = 0;
-        }
-    // END================================= PULSE RATE (A1, FN GEN) =============================
+    // // START=============================== PULSE RATE (A1, FN GEN) =============================
+    //     // READ ANALOG VOLTAGE READING 
+    //     if (unoCounter % 5 == 0) { // Updates every 5 seconds?
+    //         currPulseRate = pulseCount; // Should I divide this by 5 seconds to get a moving average?
+    //         pulseCount = 0;
+    //     }
+    // // END================================= PULSE RATE (A1, FN GEN) =============================
 
-    // START=============================== RESPIRATION RATE (A2, FN GEN) =======================
-        // READ ANALOG VOLTAGE READING 
-        readFromFnGen(respirationSensorPin);
-        if (unoCounter % 5 == 0) { // Updates every 5 seconds?
-            currRespirationRate = respirationCount; // Should I divide this by 5 seconds to get a moving average?
-            respirationCount = 0;
-        }
-    // END================================= RESPIRATION RATE (A2, FN GEN) =======================
+    // // START=============================== RESPIRATION RATE (A2, FN GEN) =======================
+    //     // READ ANALOG VOLTAGE READING 
+    //     readFromFnGen(respirationSensorPin);
+    //     if (unoCounter % 5 == 0) { // Updates every 5 seconds?
+    //         currRespirationRate = respirationCount; // Should I divide this by 5 seconds to get a moving average?
+    //         respirationCount = 0;
+    //     }
+    // // END================================= RESPIRATION RATE (A2, FN GEN) =======================
 
     // Serial.print("Temp: "); Serial.println(currTemp);
     // Serial.print("Sys: "); Serial.println(currSys);
@@ -346,15 +349,15 @@ void loop() {
 void readFromFnGen(int sensorPin) {
     // Set Amplitude to 1.950
     // Set Offset to 650mV
-    voltageReading = analogRead(sensorPin) * (5.0 / 1023.0);
-    //Serial.println(voltageReading);
-    if (voltageReading >= 3) {
-        if (sensorPin == pulseSensorPin) {
-            pulseCount++;
-            // Serial.println(pulseCount);
+    // voltageReading = analogRead(sensorPin) * (5.0 / 1023.0);
+    // //Serial.println(voltageReading);
+    // if (voltageReading >= 3) {
+    //     if (sensorPin == pulseSensorPin) {
+    //         pulseCount++;
+    //         // Serial.println(pulseCount);
 
-        } else {
-            respirationCount++;
-        }
-    }
+    //     } else {
+    //         respirationCount++;
+    //     }
+    // }
 }
