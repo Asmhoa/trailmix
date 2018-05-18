@@ -2,7 +2,7 @@
 // Code for ATMega
 // Eddy, Kyuri, Amol
 
-#include <stdio.h>a
+#include <stdio.h>
 #include <stdbool.h>
 #include <Elegoo_GFX.h>    // Core graphics library
 #include <Elegoo_TFTLCD.h> // Hardware-specific library
