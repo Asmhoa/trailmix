@@ -11,7 +11,7 @@
 #define END_MESSAGE '<'
 
 // START-------------------------- DEBOUNCE VARIABLES / CONSTANTS ------------------------------ 
-    const int debounceButtonPin = 2;    // the number of the pushbutton pin
+    const int debounceButtonPin = 5;    // the number of the pushbutton pin
     const int debounceledPin = 12;      // the number of the LED pin
 
     // Variables will change:
@@ -28,7 +28,7 @@
     bool increOrDecre = true;
 // END--------------------------- DEBOUNCE VARIABLES / CONSTANTS ------------------------------ 
 
-// START------------------------------ CUFF VARIABLES / CONSTANTS ------------------------------ 
+// START------------------------------ CUFF VARIABLES / CONSTANTS ----------------------------- 
     const int buttonPin = 4;    // the number of the pushbutton pin
     const int greenLedPin = 11;      // green LED lights up to increment cuff pressure
     const int redLedPin = 10;        // red LED lights up to decrement cuff pressure
@@ -43,55 +43,62 @@
     unsigned long lastDebounceTime2 = 0;  // the last time the output pin was toggled
 // END------------------------------- CUFF VARIABLES / CONSTANTS ------------------------------ 
 
+// START------------------------------ PULSE AND RESPIRATION INTERRUPTS -----------------------
+    // Pulse Rate interrupt on rising edge
+    attachInterrupt(digitalPinToInterrupt(2), pulseReadFromFnGen(), RISING);
 
-// GLOBAL COUNTER FOR UNO
-// Updated during interrupt service routines
-int unoCounter = 0;
-char requestingTaskID = 0;
-char requestedFunction = 0;
-int data = 0;
-bool even = false;
+    // Respiration Rate interrupt on rising edge
+    attachInterrupt(digitalPinToInterrupt(3), respReadFromFnGen(), RISING);
 
-// Declare variables
-int currTemp = 69;
-int currSys = 80;
-int currDia = 80;
-// BLOOD PRESSURE FOR CUFFS
-double currBp = 80;
+    // Measure RATE every 1 second
+    Timer1.initialize(1000000);
+    Timer1.attachInterrupt(measureRate());
+// END------------------------------- PULSE AND RESPIRATION INTERRUPTS -----------------------
 
-// Fields for Analog Pulse Reader
-int pulseSensorPin;         // Pulse from Fn Gen
-int respirationSensorPin;   // Respiration from Fn Gen
-int pulseCount;
-int currPulseRate;
-int respirationCount;
-int currRespirationRate;
-float voltageReading;
+// OTHER GLOBALs FOR UNO
+    // Updated during interrupt service routines
+    int unoCounter = 0;
+    char requestingTaskID = 0;
+    char requestedFunction = 0;
+    int data = 0;
+    bool even = false;
 
-// Arrays containing changes in temp and pulse, will be switched
-// when upper/lower limits are hit. 0th elements are called at Even
-// function calls.
-int tempChange[2] = {-2, 1}; // initially falling towards 15
-int pulseChange[2] = {1, -3}; // initially falling towards 15
+    // Declare variables
+    int currTemp = 69;
+    int currSys = 80;
+    int currDia = 80;
+    // BLOOD PRESSURE FOR CUFFS
+    double currBp = 80;
 
-// Initially both temperature and pulse are very high and must keep 
-// falling until they cross 50 and 40 respectively before their 
-// standard boundaries can work.
-bool tempCrossedFifty = false;
-bool pulseCrossedForty = false;
+    // Fields for Analog Pulse Reader
+    int pulseSensorPin;         // Pulse from Fn Gen
+    int respirationSensorPin;   // Respiration from Fn Gen
+    int pulseCount;
+    int currPulseRate;
+    int respirationCount;
+    int currRespirationRate;
+    float voltageReading;
 
-// Systolic completion
-bool systolicComplete = false;
-// Diastolic completion
-bool diastolicComplete = false;
+    // Arrays containing changes in temp and pulse, will be switched
+    // when upper/lower limits are hit. 0th elements are called at Even
+    // function calls.
+    int tempChange[2] = {-2, 1}; // initially falling towards 15
+    int pulseChange[2] = {1, -3}; // initially falling towards 15
 
-// Function prototypes
-void measureTemp();
-void measureSys(int currSys);
-void measureDia(int currDia);
-void measurePr();
-void readFromFnGen();
-int updatePulseRate();
+    // Initially both temperature and pulse are very high and must keep 
+    // falling until they cross 50 and 40 respectively before their 
+    // standard boundaries can work.
+    bool tempCrossedFifty = false;
+    bool pulseCrossedForty = false;
+
+    // Systolic completion
+    bool systolicComplete = false;
+    // Diastolic completion
+    bool diastolicComplete = false;
+
+    // Function prototypes
+    void readFromFnGen();
+    int updatePulseRate();
 
 void respondMessage(String taskID, String funcToRun, String data) {
     Serial.println(START_MESSAGE + taskID + END_TERM + funcToRun + END_TERM
@@ -317,39 +324,71 @@ void loop() {
         }
     // END================================= BLOOD PRESSURE =====================================
 
-    // START=============================== PULSE RATE (A1, FN GEN) =============================
-        // READ ANALOG VOLTAGE READING 
-        if (unoCounter % 5 == 0) { // Updates every 5 seconds?
-            currPulseRate = pulseCount; // Should I divide this by 5 seconds to get a moving average?
-            pulseCount = 0;
-        }
-    // END================================= PULSE RATE (A1, FN GEN) =============================
+    // START=============================== PULSE RATE (2, FN GEN) =============================
+        // Measured using interrupts, triggered by rising edge
+        
+        // // READ ANALOG VOLTAGE READING 
+        // if (unoCounter % 5 == 0) { // Updates every 5 seconds?
+        //     currPulseRate = pulseCount; // Should I divide this by 5 seconds to get a moving average?
+        //     pulseCount = 0;
+        // }
+    // END================================= PULSE RATE (2, FN GEN) =============================
 
-    // START=============================== RESPIRATION RATE (A2, FN GEN) =======================
-        // READ ANALOG VOLTAGE READING 
-        readFromFnGen(respirationSensorPin);
-        if (unoCounter % 5 == 0) { // Updates every 5 seconds?
-            currRespirationRate = respirationCount; // Should I divide this by 5 seconds to get a moving average?
-            respirationCount = 0;
-        }
-    // END================================= RESPIRATION RATE (A2, FN GEN) =======================
+    // START=============================== RESPIRATION RATE (3, FN GEN) =======================
+        // Measured using interrupts, triggered by rising edge
 
+        // readFromFnGen(respirationSensorPin);
+        // if (unoCounter % 5 == 0) { // Updates every 5 seconds?
+        //     currRespirationRate = respirationCount; // Should I divide this by 5 seconds to get a moving average?
+        //     respirationCount = 0;
+        // }
+    // END================================= RESPIRATION RATE (3, FN GEN) =======================
+
+}
+
+
+// Runs every time there is a rising edge? Pin interrupt
+void pulseReadFromFnGen() {
+    // Set Amplitude to 1.950
+    // Set Offset to 650mV
+    voltageReading = analogRead(2) * (5.0 / 1023.0);
+    if (voltageReading >= 3) {
+        pulseCount++;
+    }
+}
+
+// Runs every time there is a rising edge? Pin interrupt
+void respReadFromFnGen() {
+    // Set Amplitude to 1.950
+    // Set Offset to 650mV
+    voltageReading = analogRead(3) * (5.0 / 1023.0);
+    if (voltageReading >= 3) {
+        respirationCount++;
+    }
+}
+
+// Run every ONE second using Timer1 interrupt
+void measureRate() {
+    currPulseRate = pulseCount;
+    currRespirationRate = respirationCount;
+    pulseCount = 0;
+    respirationCount = 0;
 }
 
 // Function generator to generate a 0-3.3v squarewave. Attach function generator
 // to A1 or A2 pin on Uno with a GPIO for PULSE || RESPIRATION readings
-void readFromFnGen(int sensorPin) {
-    // Set Amplitude to 1.950
-    // Set Offset to 650mV
-    voltageReading = analogRead(sensorPin) * (5.0 / 1023.0);
-    //Serial.println(voltageReading);
-    if (voltageReading >= 3) {
-        if (sensorPin == pulseSensorPin) {
-            pulseCount++;
-            // Serial.println(pulseCount);
+// void readFromFnGen(int sensorPin) {
+//     // Set Amplitude to 1.950
+//     // Set Offset to 650mV
+//     voltageReading = analogRead(sensorPin) * (5.0 / 1023.0);
+//     //Serial.println(voltageReading);
+//     if (voltageReading >= 3) {
+//         if (sensorPin == pulseSensorPin) {
+//             pulseCount++;
+//             // Serial.println(pulseCount);
 
-        } else {
-            respirationCount++;
-        }
-    }
-}
+//         } else {
+//             respirationCount++;
+//         }
+//     }
+// }
