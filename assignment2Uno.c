@@ -376,7 +376,6 @@ void respReadFromFnGen() {
 void measureRate() {
     currPulseRate = pulseCount;
     currRespirationRate = respirationCount;
-    Serial.print("Pulse rate: "); Serial.println(currPulseRate);
     pulseCount = 0;
     respirationCount = 0;
 }
