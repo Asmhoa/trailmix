@@ -43,17 +43,7 @@
     unsigned long lastDebounceTime2 = 0;  // the last time the output pin was toggled
 // END------------------------------- CUFF VARIABLES / CONSTANTS ------------------------------ 
 
-// START------------------------------ PULSE AND RESPIRATION INTERRUPTS -----------------------
-    // Pulse Rate interrupt on rising edge
-    attachInterrupt(digitalPinToInterrupt(2), pulseReadFromFnGen(), RISING);
 
-    // Respiration Rate interrupt on rising edge
-    attachInterrupt(digitalPinToInterrupt(3), respReadFromFnGen(), RISING);
-
-    // Measure RATE every 1 second
-    Timer1.initialize(1000000);
-    Timer1.attachInterrupt(measureRate());
-// END------------------------------- PULSE AND RESPIRATION INTERRUPTS -----------------------
 
 // OTHER GLOBALs FOR UNO
     // Updated during interrupt service routines
@@ -157,12 +147,27 @@ void setup() {
     // A1 and A2
         pinMode(pulseSensorPin, INPUT);
         pinMode(respirationSensorPin, INPUT);
+
+    // START------------------------------ PULSE AND RESPIRATION INTERRUPTS -----------------------
+    pinMode(2, INPUT_PULLUP);
+    pinMode(3, INPUT_PULLUP);
+    
+    // Pulse Rate interrupt on rising edge
+    attachInterrupt(digitalPinToInterrupt(2), pulseReadFromFnGen, RISING);
+    
+    // Respiration Rate interrupt on rising edge
+    attachInterrupt(digitalPinToInterrupt(3), respReadFromFnGen, RISING);
+
+    // Measure RATE every 1 second
+    Timer1.initialize(1000000);
+    Timer1.attachInterrupt(measureRate);
+// END------------------------------- PULSE AND RESPIRATION INTERRUPTS -----------------------
 }
 
 bool sysTaken = false;
 bool diaTaken = false;
 
-void loop() {   
+void loop() {  
     
     // START======================================== COMMS =====================================
         parseMessage();
@@ -346,31 +351,32 @@ void loop() {
 
 }
 
-
-// Runs every time there is a rising edge? Pin interrupt
+//
+//// Runs every time there is a rising edge? Pin interrupt
 void pulseReadFromFnGen() {
     // Set Amplitude to 1.950
     // Set Offset to 650mV
-    voltageReading = analogRead(2) * (5.0 / 1023.0);
-    if (voltageReading >= 3) {
+    voltageReading = digitalRead(2);
+    if (voltageReading >= 1) {
         pulseCount++;
     }
 }
 
-// Runs every time there is a rising edge? Pin interrupt
+//// Runs every time there is a rising edge? Pin interrupt
 void respReadFromFnGen() {
     // Set Amplitude to 1.950
     // Set Offset to 650mV
-    voltageReading = analogRead(3) * (5.0 / 1023.0);
-    if (voltageReading >= 3) {
+    voltageReading = digitalRead(2);
+    if (voltageReading >= 1) {
         respirationCount++;
     }
 }
 
-// Run every ONE second using Timer1 interrupt
+//// Run every ONE second using Timer1 interrupt
 void measureRate() {
     currPulseRate = pulseCount;
     currRespirationRate = respirationCount;
+    Serial.print("Pulse rate: "); Serial.println(currPulseRate);
     pulseCount = 0;
     respirationCount = 0;
 }
