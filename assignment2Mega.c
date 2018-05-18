@@ -136,6 +136,7 @@ bool bpHigh = false,
     pulseLow = false,
     rrLow = false,
     battLow = false,
+    state = false,
     dismiss = false;
 
 // TFT Keypad
@@ -646,13 +647,6 @@ void annunciateDataFunc(void* x) {
         tempHigh = false;
     }
 
-    if(tempOutOfRange) {
-        if(0 == unoCounter % 2) {
-            digitalWrite(warningLED, HIGH);
-            delay(1000);
-            digitalWrite(warningLED, LOW);
-        } 
-    }
 
     // check systolic: Instructions unclear, googled for healthy and 
     // unhealthy systolic pressures. 
@@ -674,17 +668,6 @@ void annunciateDataFunc(void* x) {
         bpHigh = false;
     }
 
-    if(bpOutOfRange || bpOutOfRange2) {
-        if(0 == unoCounter % 2) {
-            digitalWrite(warningLED, HIGH);
-            delay(500);
-            digitalWrite(warningLED, LOW);
-            delay(500);
-            digitalWrite(warningLED, HIGH);
-            delay(500);
-            digitalWrite(warningLED, LOW);
-        } 
-    }
     
     /*  IF PRESSURE CRITICALLY HIGH, need interrupt flashing warnings -----------------------------------
         User can acknowledge it to DISABLE INTERRUPT
@@ -729,13 +712,6 @@ void annunciateDataFunc(void* x) {
         pulseLow = false;
     }
 
-    if(pulseOutOfRange) {
-        if(0 == unoCounter % 2) {
-            digitalWrite(warningLED, HIGH);
-        } else {
-            digitalWrite(warningLED, LOW);
-        }
-    }
     int normalizedResp = *dataStruct.respirationRateCorrectedPtr;
     if ((normalizedResp < (12 * 0.95)) || normalizedResp > (25 * 1.05))) {
         rrOutOfRange = 1;
@@ -962,10 +938,27 @@ void menuView() {
 void updateCounter(void) {
     Serial1.println('U');
     unoCounter++;
-    /*
-    if(0 == unoCounter % 2) {
-        addFlags[5] = 1; // What does this mean????
-    }*/
+
+
+    //FLASH FOR WARNING
+    if(tempOutOfRange) { // EVERY 1 SEC
+        digitalWrite(warningLED, state);
+        state = !state;
+    } else if(bpOutOfRange || bpOutOfRange2) { // EVERY 0.5 SEC
+        for(int i = 0; i < 2; i++) {
+            digitalWrite(warningLED, state);
+            delay(500);
+            state = !state;
+        }
+    } else if(pulseOutOfRange) { // EVERY 2 SEC
+        if(0 == unoCounter % 2) {
+            digitalWrite(warningLED, state);
+        } 
+        state = !state;
+    } else {
+        state = false;
+    }
+
 }
 
 /* INITIALIZATION */
@@ -1029,6 +1022,7 @@ void setup(void) {
     tft.begin(identifier);
 
     pinMode(warningLED, OUTPUT);
+    
 
     // Set measurements to initial values
     // char* and char values are already set as global variables
