@@ -104,6 +104,7 @@ int currSys;
 int currDia;
 int currPr;
 int currResp;
+char mode = 'N';
 
 int warningLED = 13;
 
@@ -198,6 +199,7 @@ struct DataForStatusStruct {
 }; typedef struct DataForStatusStruct StatusTaskData;
 
 struct DataForKeypadStruct {
+    char* modePtr;
     unsigned short* measurementSelectionPtr;
     unsigned short* alarmAcknowledgePtr;
 }; typedef struct DataForKeypadStruct KeypadTaskData;
@@ -260,14 +262,14 @@ void parseMessage() {
             incomingData = Serial1.parseInt();
             Serial1.read();
 
-            Serial.println(incomingData);
+            // Serial.println(incomingData);
         }
     }
 }
 
 void measureDataFunc(void* data) {
     // Dereference data to use it
-    Serial.println("Measure task started");
+    // Serial.println("Measure task started");
     delay(20);
     MeasureTaskData* dataToMeasure = (MeasureTaskData*)data;
     MeasureTaskData dataStruct = *dataToMeasure;
@@ -423,12 +425,12 @@ void measureDataFunc(void* data) {
     
     // Change Compute Flag to addTask when new data is measured
     //addFlags[1] = 1;
-    Serial.println("Measure task Ended");
+    // Serial.println("Measure task Ended");
     delay(20);
 }
 
 void computeDataFunc(void* x) {
-    Serial.println("!Compute task started");
+    // Serial.println("!Compute task started");
     delay(20);
     // Dereferencing void pointer to ComputeStruct
     ComputeTaskData* data = (ComputeTaskData*)x;
@@ -467,7 +469,7 @@ void computeDataFunc(void* x) {
 
     double rrCorrected = 7 + 3 * rawResp;
     respirationRateCorrectedBuf[0] = rrCorrected;
-    Serial.println("?Compute task ended");
+    // Serial.println("?Compute task ended");
     delay(20);
 }
 
@@ -475,7 +477,7 @@ void computeDataFunc(void* x) {
 // ENTER THIS ONLY WHEN ANNUNCIATION IS PRESSED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 void displayDataFunc(void* x) {
 
-    Serial.println("Display task started");
+    // Serial.println("Display task started");
     DisplayTaskData* data = (DisplayTaskData*)x;
     DisplayTaskData dataStruct = *data;
 
@@ -495,137 +497,110 @@ void displayDataFunc(void* x) {
 
     menuButtons[3].initButton(&tft, 125, 265, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EM2", 2);
     menuButtons[3].drawButton();
-    Serial.println("Display task ended");
+    // Serial.println("Display task ended");
     delay(20);
 }
 
 void annunciateDataFunc(void* x) {
-    Serial.println("Annunciate started");
+    // Serial.println("Annunciate started");
     delay(20);
     
-    //measurementSelection = 4; // Get all values
+    // measurementSelection = 4; // Get all values
 
     // Dereferencing void pointer to WarningStruct
     WarningAlarmTaskData* data = (WarningAlarmTaskData*)x;
     WarningAlarmTaskData dataStruct = *data;
+    mode = 'N';
 
-    tft.setTextSize(1); // Is font size too small?
-    
-    if (measurementSelection == 0) {
-        // Respiration Rate
-        rrOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-        if (rrLow && !dismiss) { 
-            tft.setTextColor(RED); // Add acknowledgement event??
-        }
-        tft.println("Respiration rate: " + (String)*dataStruct.respirationRateCorrectedPtr + " RR");
-    } else if (measurementSelection == 1) {
-        // Pulse
-        pulseOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-        if (pulseLow && !dismiss) { 
-            tft.setTextColor(RED); // Add acknowledgement event??
-        }
-        tft.println("Pulse rate: " + (String)*dataStruct.prCorrectedPtr + " BPM");
-    } else if (measurementSelection == 2) {
-        // Blood Pressure
-        bpOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
-        if (bpHigh && !dismiss) { 
-            tft.setTextColor(RED); // Add acknowledgement event??
-        }
-        tft.println("Systolic pressure: " + (String)*dataStruct.bloodPressCorrectedPtr + " mm Hg");
-        // Blood Pressure
-        bpOutOfRange2 ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
-        if (bpHigh2 && !dismiss) { 
-            tft.setTextColor(RED); // Add acknowledgement event??
-        }
-        tft.println("Diastolic pressure: " + (String)*(dataStruct.bloodPressCorrectedPtr + 8) + " mm Hg");
-    } else if (measurementSelection == 3) {
-        // Temperature
-        tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
-        if (tempHigh && !dismiss) {
-            tft.setTextColor(RED); // Add acknowledgement event??
-        } 
-        tft.println("Temperature: " + (String)*dataStruct.temperatureCorrectedPtr + " C");
-    } else  {
-        // Temperature
-        tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
-        if (tempHigh && !dismiss) {
-            tft.setTextColor(RED); // Add acknowledgement event??
-        } 
-        tft.println("Temperature: " + (String)*dataStruct.temperatureCorrectedPtr + " C");
+    tft.setTextSize(2); // Is font size too small?
+    tft.fillScreen(BLACK);
+    tft.setCursor(0, 0);
 
-        // Blood Pressure
-        bpOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
-        if (bpHigh && !dismiss) { 
-            tft.setTextColor(RED); // Add acknowledgement event??
-        }
-        tft.println("Systolic pressure: " + (String)*dataStruct.bloodPressCorrectedPtr + " mm Hg");
-        // Blood Pressure
-        bpOutOfRange2 ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
-        if (bpHigh2 && !dismiss) { 
-            tft.setTextColor(RED); // Add acknowledgement event??
-        }
-        tft.println("Diastolic pressure: " + (String)*(dataStruct.bloodPressCorrectedPtr + 8) + " mm Hg");
-
-        // Pulse
-        pulseOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-        if (pulseLow && !dismiss) { 
-            tft.setTextColor(RED); // Add acknowledgement event??
-        }
-        tft.println("Pulse rate: " + (String)*dataStruct.prCorrectedPtr + " BPM");
-
-        // Respiration Rate
-        rrOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-        if (rrLow && !dismiss) { 
-            tft.setTextColor(RED); // Add acknowledgement event??
-        }
-        tft.println("Respiration rate: " + (String)*dataStruct.respirationRateCorrectedPtr + " RR");
-
-        // Battery
-        battLow ? tft.setTextColor(RED) : tft.setTextColor(GREEN);
-        tft.println("Battery: " + (String)*dataStruct.batteryStatePtr);
-
-    }
-    delay(50);
-
-    // // Back Button
-    // backButton[0].initButton(&tft, 125, 265, 180, 35, ILI9341_WHITE, ILI9341_RED, ILI9341_WHITE, "BACK", 2);
-    // backButton[0].drawButton();
-
-    // bool keepSensing = true;
-    // while (keepSensing) {
-    //     digitalWrite(13, HIGH);
-    //     TSPoint p = ts.getPoint();
-    //     digitalWrite(13, LOW);
-    //     pinMode(XM, OUTPUT);
-    //     pinMode(YP, OUTPUT);
-    //     if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
-    //         // scale from 0->1023 to tft.width
-    //         p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-    //         p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
-    //     }
-    //     if (backButton[0].contains(p.x, p.y)) {
-    //         backButton[0].press(true); // tell the button it is pressed
-    //         keepSensing = false;
-    //     } else {
-    //         backButton[0].press(false);  // tell the button it is NOT pressed
-    //     }
-    //     if (backButton[0].justPressed()) {
-    //         // GO BACK TO MAIN MENU, SHOULD USE SCHEDULER??
-    //         backButton[0].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
-    //         backButton[0].drawButton();
-    //         tft.setCursor(0,0);
-    //         tft.fillScreen(BLACK);
-    //         Serial.println("BACK BUTTON IS PRESSED");
-
-    //         // ADDFLAG FOR DISPLAY AND TOUCHPAD? NEED TO BRING USER BACK TO MAIN MENU
+    switch(measurementSelection) {
+        case 0: // Temperature
+            tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
+            if (tempHigh) {
+                tft.setTextColor(RED); // Add acknowledgement event??
+            } 
+            tft.println("Temp: " + (String)*dataStruct.temperatureCorrectedPtr + " C");
+            break;
+        case 1: // Blood pressure
+            // Sys
+            bpOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
+            if (bpHigh) { 
+                tft.setTextColor(RED); // Add acknowledgement event??
+            }
+            tft.println("Sysl.: " + (String)*dataStruct.bloodPressCorrectedPtr + " mm Hg");
+            // Dia
+            bpOutOfRange2 ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
+            if (bpHigh2) { 
+                tft.setTextColor(RED); // Add acknowledgement event??
+            }
+            tft.println("Diasl.: " + (String)*(dataStruct.bloodPressCorrectedPtr + 8) + " mm Hg");
+            break;
+        case 2: // Pulse
+            pulseOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
+            if (pulseLow) { 
+                tft.setTextColor(RED); // Add acknowledgement event??
+            }
+            tft.println("Pulse: " + (String)*dataStruct.prCorrectedPtr + " BPM");
+            break;
+        case 3: // Respiration
+            rrOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
+            if (rrLow) { 
+                tft.setTextColor(RED); // Add acknowledgement event??
+            }
+            tft.println("Resp.: " + (String)*dataStruct.respirationRateCorrectedPtr + " RR");
+            break;
+        case 4: // Everything
             addFlags[0] = 1;
             addFlags[1] = 1;
-            addFlags[2] = 1;
-            addFlags[3] = 0;
-            addFlags[4] = 0;
+            addFlags[2] = 0;
+            addFlags[3] = 1;
+            addFlags[4] = 1;
             addFlags[5] = 1;
-    //     }
-    // }
+            mode = 'A';
+
+             // Temperature
+            tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
+            if (tempHigh) {
+                tft.setTextColor(RED); // Add acknowledgement event??
+            } 
+            tft.println("Temp: " + (String)*dataStruct.temperatureCorrectedPtr + " C");
+
+            // Blood Pressure
+            bpOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
+            if (bpHigh) { 
+                tft.setTextColor(RED); // Add acknowledgement event??
+            }
+            tft.println("Sysl.: " + (String)*dataStruct.bloodPressCorrectedPtr + " mm Hg");
+            // Blood Pressure
+            bpOutOfRange2 ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
+            if (bpHigh2) { 
+                tft.setTextColor(RED); // Add acknowledgement event??
+            }
+            tft.println("Diasl.: " + (String)*(dataStruct.bloodPressCorrectedPtr + 8) + " mm Hg");
+
+            // Pulse
+            pulseOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
+            if (pulseLow) { 
+                tft.setTextColor(RED); // Add acknowledgement event??
+            }
+            tft.println("Pulse: " + (String)*dataStruct.prCorrectedPtr + " BPM");
+
+            // Respiration Rate
+            rrOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
+            if (rrLow) { 
+                tft.setTextColor(RED); // Add acknowledgement event??
+            }
+            tft.println("Resp.: " + (String)*dataStruct.respirationRateCorrectedPtr + " RR");
+
+            // Battery
+            battLow ? tft.setTextColor(RED) : tft.setTextColor(GREEN);
+            tft.println("Battery: " + (String)*dataStruct.batteryStatePtr);
+            break;
+    }
+    delay(50);
 
 
     // Acknowledge button SHOULD ONLY APPEAR WHEN THERE IS AN ALARM RINGING
@@ -791,7 +766,7 @@ void annunciateDataFunc(void* x) {
     } else {
         battLow = false;
     }
-    Serial.println("Annunciate ended");
+    // Serial.println("Annunciate ended");
     delay(20);
 }
 
@@ -801,82 +776,111 @@ void statusDataFunc(void* x) {
         StatusTaskData* data = (StatusTaskData*)x;
         StatusTaskData dataStruct = *data;
         
-        *dataStruct.batteryStatePtr = 200 - (int)(unoCounter / 5);
+        *(dataStruct.batteryStatePtr) = 200 - (int)(unoCounter / 5);
     }
 }
 
 void KeypadDataFunc(void* x) {
-    Serial.println("Keypad Task started");
+    // Serial.println("Keypad Task started");
     KeypadTaskData* data = (KeypadTaskData*)x;
     KeypadTaskData dataStruct = *data;
 
-    bool keepSensing = true;
-    while (keepSensing) {
-        digitalWrite(13, HIGH);
-        TSPoint p = ts.getPoint();
-        digitalWrite(13, LOW);
+    if('A' == *(dataStruct.modePtr)) {
+        // Back Button
+        backButton[0].initButton(&tft, 125, 265, 180, 35, ILI9341_WHITE, ILI9341_RED, ILI9341_WHITE, "MAIN", 2);
+        backButton[0].drawButton();
 
-        pinMode(XM, OUTPUT);
-        pinMode(YP, OUTPUT);
-        
-        if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
-            // scale from 0->1023 to tft.width
-            p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-            p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
-        }
-
-        // go thru all the buttons, checking if they were pressed
-        for (uint8_t b = 0; b < 4; b++) {
-            if (menuButtons[b].contains(p.x, p.y)) {
-                Serial.print("Pressing: "); Serial.println(b);
-                menuButtons[b].press(true);  // tell the button it is pressed
-
-                keepSensing = false;
-
-            } else {
-                menuButtons[b].press(false);  // tell the button it is NOT pressed
+        // bool keepSensing = true;
+        // while (keepSensing) {
+            digitalWrite(13, HIGH);
+            TSPoint p = ts.getPoint();
+            digitalWrite(13, LOW);
+            pinMode(XM, OUTPUT);
+            pinMode(YP, OUTPUT);
+            if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+                // scale from 0->1023 to tft.width
+                p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+                p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
             }
-        }
+            if (backButton[0].contains(p.x, p.y)) {
+                backButton[0].press(true); // tell the button it is pressed
+                // keepSensing = false;
+            } else {
+                backButton[0].press(false);  // tell the button it is NOT pressed
+            }
+            if (backButton[0].justPressed()) {
+                // GO BACK TO MAIN MENU, SHOULD USE SCHEDULER??
+                backButton[0].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
+                backButton[0].drawButton();
+                tft.setCursor(0,0);
+                tft.fillScreen(BLACK);
+                Serial.println("BACK BUTTON IS PRESSED");
 
-        for (uint8_t b = 0; b < 4; b++) {
-            if (menuButtons[b].justPressed()) {
-                if(b == 3)  { // Menu
-                    menuButtons[0].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
-                    menuButtons[0].drawButton();
+                // ADDFLAG FOR DISPLAY AND TOUCHPAD? NEED TO BRING USER BACK TO MAIN MENU
+                addFlags[0] = 1;
+                addFlags[1] = 1;
+                addFlags[2] = 1;
+                addFlags[3] = 0;
+                addFlags[4] = 0;
+                addFlags[5] = 1;
+            }
+        // }
+    } else {
+        bool keepSensing = true;
+        while (keepSensing) {
+            digitalWrite(13, HIGH);
+            TSPoint p = ts.getPoint();
+            digitalWrite(13, LOW);
 
-                    menuButtons[1].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
-                    menuButtons[1].drawButton();
+            pinMode(XM, OUTPUT);
+            pinMode(YP, OUTPUT);
+            
+            if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+                // scale from 0->1023 to tft.width
+                p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+                p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+            }
 
-                    menuButtons[2].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
-                    menuButtons[2].drawButton();
+            // go thru all the buttons, checking if they were pressed
+            for (uint8_t b = 0; b < 4; b++) {
+                if (menuButtons[b].contains(p.x, p.y)) {
+                    // Serial.print("Pressing: "); Serial.println(b);
+                    menuButtons[b].press(true);  // tell the button it is pressed
 
-                    menuButtons[3].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
-                    menuButtons[3].drawButton();
+                    keepSensing = false;
 
-                    tft.setCursor(0,0);
-                    tft.fillScreen(BLACK);
-                    menuView();
-                    break;
-                } else if (b == 2) { // Annunciate
-                    tft.setCursor(0,0);
-                    tft.fillScreen(BLACK);
+                } else {
+                    menuButtons[b].press(false);  // tell the button it is NOT pressed
+                }
+            }
 
-                    // Setting flags in schedule 
-                    // First measure everything, then annunciate everything
-                    measurementSelection = 4;
-                    // addFlags[0] = 1;
-                    addFlags[3] = 1;
-                    break;
-                } 
+            for (uint8_t b = 0; b < 4; b++) {
+                if (menuButtons[b].justPressed()) {
+                    if(b == 3)  { // Menu
+                        tft.setCursor(0,0);
+                        tft.fillScreen(BLACK);
+                        menuView();
+                        break;
+                    } else if (b == 2) { // Annunciate
+                        tft.setCursor(0,0);
+                        tft.fillScreen(BLACK);
+                        // Setting flags in schedule 
+                        // First measure everything, then annunciate everything
+                        measurementSelection = 4;
+                        addFlags[0] = 1;
+                        addFlags[3] = 1;
+                        break;
+                    } 
+                }
             }
         }
     }
-    delay(100);
-    Serial.println("Keypad Task ended");
+    delay(20);
+    // Serial.println("Keypad Task ended");
 }
 
 void menuView() {
-    Serial.println("Menu View started");
+    // Serial.println("Menu View started");
     measureSelectButtons[0].initButton(&tft, 125, 55, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Temp", 2);
     measureSelectButtons[0].drawButton();
 
@@ -886,7 +890,7 @@ void menuView() {
     measureSelectButtons[2].initButton(&tft, 125, 195, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Pulse", 2);
     measureSelectButtons[2].drawButton();
 
-    measureSelectButtons[3].initButton(&tft, 125, 265, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Respiratn", 2);
+    measureSelectButtons[3].initButton(&tft, 125, 265, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Resp.", 2);
     measureSelectButtons[3].drawButton();
     
     bool staySensingPress = true;
@@ -907,7 +911,7 @@ void menuView() {
 
         for (uint8_t b = 0; b < 4; b++) {
             if (measureSelectButtons[b].contains(p.x, p.y)) {
-                Serial.print("Pressing: "); Serial.println(b);
+                // Serial.print("Pressing: "); Serial.println(b);
                 measureSelectButtons[b].press(true); // tell the button it is pressed
                 tft.setCursor(0,0);
                 tft.fillScreen(BLACK);
@@ -920,39 +924,38 @@ void menuView() {
 
         for (uint8_t b = 0; b < 4; b++) {
             if (menuButtons[b].justPressed()) {
-                if (3 == b) { // Temperature
+                if (0 == b) { // Temperature
                     staySensingPress = false;
                     measurementSelection = 0;
                     addFlags[3] = 1;
                     // Measure REspiration
                     // Go to Annunciate
 
-                } else if (2 == b) { // BP
+                } else if (1 == b) { // BP
                     staySensingPress = false;
                     measurementSelection = 1;
                     addFlags[3] = 1;
                     // Measure Pulse
                     // Go to Annunciate
 
-                } else if (1 == b) { // Pulse
+                } else if (2 == b) { // Pulse
                     measurementSelection = 2;
                     staySensingPress = false;
                     addFlags[3] = 1;
                     // Measure BP
                     // Go to Annunciate
 
-                } else if (0 == b) { // respiration
+                } else if (3 == b) { // respiration
                     measurementSelection = 3;
                     staySensingPress = false;
                     addFlags[3] = 1;
                     // Measure Temp
                     // Go to Annunciate
-                } 
-
+                }
             }
         }
     }
-    Serial.println("Menu View ended");
+    // Serial.println("Menu View ended");
 }
 
 // Delay for 100ms and update counter/time on peripheral system
@@ -1081,6 +1084,7 @@ void setup(void) {
 
     // TFT Keypad
     KeypadTaskData dataForKeypadTMP;
+    dataForKeypadTMP.modePtr = &mode;
     dataForKeypadTMP.measurementSelectionPtr = &measurementSelection;
     dataForKeypadTMP.alarmAcknowledgePtr = &alarmAcknowledge;
     dataForKeypad = dataForKeypadTMP;
@@ -1220,7 +1224,9 @@ void scheduler() {
             Serial.println("currPointer == measureTask");
         } else if (currPointer == &ComputeTask) {
             Serial.println("currPointer == computeTask");
-        }else if(currPointer == &DisplayTask) {
+        }  else if (currPointer == &AnnunciateTask) {
+            Serial.println("currPointer == annunciateTask");
+        } else if(currPointer == &DisplayTask) {
             Serial.println("currPointer == displayTask");
         } else if (currPointer == &StatusTask) {
             Serial.println("currPointer == statusTask");
