@@ -64,9 +64,9 @@ double currBp = 80;
 int pulseSensorPin;         // Pulse from Fn Gen
 int respirationSensorPin;   // Respiration from Fn Gen
 int pulseCount;
-int pulseRate;
+int currPulseRate;
 int respirationCount;
-int respirationRate;
+int currRespirationRate;
 float voltageReading;
 
 // Arrays containing changes in temp and pulse, will be switched
@@ -127,7 +127,9 @@ void setup() {
     // Setup for Analog Pulse Reader
     pulseCount = 0;
     voltageReading = 0;
-    pulseRate = 0;
+    currPulseRate = 0;
+    currRespirationRate = 0;
+
     pulseSensorPin = A1;    // Temperature
     respirationSensorPin = A2;    
   
@@ -137,7 +139,6 @@ void setup() {
         // set initial LED state
         digitalWrite(debounceledPin, debounceLedState);
 
-
     // CUFF BUTTON
         pinMode(buttonPin, INPUT);
         pinMode(greenLedPin, OUTPUT);
@@ -145,12 +146,17 @@ void setup() {
         // set initial LED state
         digitalWrite(greenLedPin, LOW);
         digitalWrite(redLedPin, LOW);
+
+    // A1 and A2
+        pinMode(pulseSensorPin, INPUT);
+        pinMode(respirationSensorPin, INPUT);
 }
 
 bool sysTaken = false;
 bool diaTaken = false;
 
 void loop() {   
+    
     // START======================================== COMMS =====================================
         parseMessage();
         if(0 == strcmp(requestingTaskID, 'M')) { //Measure
@@ -171,9 +177,13 @@ void loop() {
                     break;
                 case 'P':
                     // measurePr();
-                    respondMessage("M", "P", String(currPr));
+                    respondMessage("M", "P", String(currPulseRate));
+                    break;
+                case 'R':
+                    respondMessage("M", "R", String(currRespirationRate));
                     break;
             }
+            
         } else if(0 == strcmp(requestingTaskID, 'C')) { //Compute
 
         } else if(0 == strcmp(requestingTaskID, 'A')) { //Annunciate
@@ -217,7 +227,7 @@ void loop() {
             if (debounceButtonState == HIGH) {
                 debounceLedState = !debounceLedState;
                 // Set Cuff Switch Boolean: Increment or Decrement mode
-                Serial.println("Cuff Switched");
+                // Serial.println("Cuff Switched");
                 increOrDecre = !increOrDecre;
             }
             }
@@ -248,20 +258,18 @@ void loop() {
 
             // if the button state has changed:
             if (reading != buttonState) {
-            buttonState = reading;
+                buttonState = reading;
 
-            // only toggle the LED if the new button state is HIGH
-            if (buttonState == HIGH) {
-                ledState = !ledState;
-                // INCREMENT or DECREMENT CUFF pressure based on CUFF SWITCH BOOLEAN
-                if (increOrDecre) {
-                currBp = currBp * 1.1;
-                Serial.print("Increment: "); Serial.println(currBp);
-                } else {
-                currBp = currBp * 0.9;
-                Serial.print("Decrement: "); Serial.println(currBp);
+                // only toggle the LED if the new button state is HIGH
+                if (buttonState == HIGH) {
+                    ledState = !ledState;
+                    // INCREMENT or DECREMENT CUFF pressure based on CUFF SWITCH BOOLEAN
+                    if (increOrDecre) {
+                    currBp = currBp * 1.1;
+                    } else {
+                    currBp = currBp * 0.9;
+                    }
                 }
-            }
             }
         }
 
@@ -280,7 +288,7 @@ void loop() {
         // read the input on analog pin 0:
         double tempSensorValue = analogRead(A0) / 12;
         // No longer needs measureTemp()
-        currTemp = tempSensorValue;
+        currTemp = 66;
     // END=================================== TEMPERATURE ANALOG (A0) ==========================
 
     // START=============================== BLOOD PRESSURE =====================================
@@ -289,7 +297,7 @@ void loop() {
             
             if (!sysTaken) {
                 delayMicroseconds(5);
-                Serial.println("Delayed for 5ms, SYS taken");
+                //Serial.println("Delayed for 5ms, SYS taken");
                 sysTaken = true;
             }
             currSys = currBp; // Taking the measurement
@@ -298,7 +306,7 @@ void loop() {
             
             if (!diaTaken) {
                 delayMicroseconds(5);
-                Serial.println("Delayed for 5ms, DIAS taken");
+                //Serial.println("Delayed for 5ms, DIAS taken");
                 diaTaken = true;
             }
 
@@ -311,9 +319,8 @@ void loop() {
 
     // START=============================== PULSE RATE (A1, FN GEN) =============================
         // READ ANALOG VOLTAGE READING 
-        readFromFnGen(pulseSensorPin);
         if (unoCounter % 5 == 0) { // Updates every 5 seconds?
-            pulseRate = pulseCount; // Should I divide this by 5 seconds to get a moving average?
+            currPulseRate = pulseCount; // Should I divide this by 5 seconds to get a moving average?
             pulseCount = 0;
         }
     // END================================= PULSE RATE (A1, FN GEN) =============================
@@ -322,10 +329,16 @@ void loop() {
         // READ ANALOG VOLTAGE READING 
         readFromFnGen(respirationSensorPin);
         if (unoCounter % 5 == 0) { // Updates every 5 seconds?
-            respirationRate = respirationCount; // Should I divide this by 5 seconds to get a moving average?
+            currRespirationRate = respirationCount; // Should I divide this by 5 seconds to get a moving average?
             respirationCount = 0;
         }
     // END================================= RESPIRATION RATE (A2, FN GEN) =======================
+
+    // Serial.print("Temp: "); Serial.println(currTemp);
+    // Serial.print("Sys: "); Serial.println(currSys);
+    // Serial.print("Dia: "); Serial.println(currDia);
+    // Serial.print("PR: "); Serial.println(currPulseRate);
+    // Serial.print("Resp: "); Serial.println(currRespirationRate);
 }
 
 // Function generator to generate a 0-3.3v squarewave. Attach function generator
@@ -334,12 +347,14 @@ void readFromFnGen(int sensorPin) {
     // Set Amplitude to 1.950
     // Set Offset to 650mV
     voltageReading = analogRead(sensorPin) * (5.0 / 1023.0);
+    //Serial.println(voltageReading);
     if (voltageReading >= 3) {
         if (sensorPin == pulseSensorPin) {
             pulseCount++;
+            // Serial.println(pulseCount);
+
         } else {
             respirationCount++;
         }
-        
     }
 }
