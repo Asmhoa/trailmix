@@ -754,55 +754,58 @@ void annunciateDataFunc(void* x) {
     } else {
         battLow = false;
     }
-    // Serial.println("Annunciate ended");
-    // //DISMISS BUTTON
-    // if((bpHigh || bpHigh2 || tempHigh || pulseLow || rrLow) && dismissCounter == 0) {
-    //     dismissButton[0].initButton(&tft, 125, 195, 180, 35, ILI9341_WHITE, ILI9341_RED, ILI9341_WHITE, "DISMISS", 2);
-    //     dismissButton[0].drawButton();
-    //     digitalWrite(13, HIGH);
-    //     TSPoint p = ts.getPoint();
-    //     digitalWrite(13, LOW);
-    //     pinMode(XM, OUTPUT);
-    //     pinMode(YP, OUTPUT);
-    //     if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
-    //         // scale from 0->1023 to tft.width
-    //         p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-    //         p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
-    //     }
-    //     if (dismissButton[0].contains(p.x, p.y)) {
-    //         dismissButton[0].press(true); // tell the button it is pressed
-    //         dismiss = true;
-    //     } else {
-    //         dismissButton[0].press(false);  // tell the button it is NOT pressed
-    //     }
-    //     if (dismissButton[0].justPressed()) {
-    //         dismissButton[0].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
-    //         dismissButton[0].drawButton();
-    //         tft.setCursor(0,0);
-    //         // STAY IN ANNUNCIATE BUT REMOVE ALARM
-    //         bpHigh = false;
-    //         bpHigh2 = false;
-    //         tempHigh = false;
-    //         pulseLow = false;
-    //         rrLow = false;
-    //         Serial.println("DISMISS BUTTON IS PRESSED");
-    //     }
-    // } else if (dismiss && dismissCounter < 5) {
-    //     bpHigh = false;
-    //     bpHigh2 = false;
-    //     tempHigh = false;
-    //     pulseLow = false;
-    //     rrLow = false;
-    // } else {
-    //     // BACK TO ALARM OR NORMAL
-    //     dismissCounter = 0;
-    //     dismiss = false;
-    // }
+
+    Serial.println("Annunciate ended");
+
+    
+    //DISMISS BUTTON
+    if((bpHigh || bpHigh2 || tempHigh || pulseLow || rrLow) && dismissCounter == 0) {
+        dismissButton[0].initButton(&tft, 125, 195, 180, 35, ILI9341_WHITE, ILI9341_RED, ILI9341_WHITE, "DISMISS", 2);
+        dismissButton[0].drawButton();
+        digitalWrite(13, HIGH);
+        TSPoint p = ts.getPoint();
+        digitalWrite(13, LOW);
+        pinMode(XM, OUTPUT);
+        pinMode(YP, OUTPUT);
+        if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+            // scale from 0->1023 to tft.width
+            p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+            p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+        }
+        if (dismissButton[0].contains(p.x, p.y)) {
+            dismissButton[0].press(true); // tell the button it is pressed
+            dismiss = true;
+        } else {
+            dismissButton[0].press(false);  // tell the button it is NOT pressed
+        }
+        if (dismissButton[0].justPressed()) {
+            dismissButton[0].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
+            dismissButton[0].drawButton();
+            tft.setCursor(0,0);
+            // STAY IN ANNUNCIATE BUT REMOVE ALARM
+            bpHigh = false;
+            bpHigh2 = false;
+            tempHigh = false;
+            pulseLow = false;
+            rrLow = false;
+            Serial.println("DISMISS BUTTON IS PRESSED");
+        }
+    } else if (dismiss && dismissCounter < 5) {
+        bpHigh = false;
+        bpHigh2 = false;
+        tempHigh = false;
+        pulseLow = false;
+        rrLow = false;
+    } else {
+        // BACK TO ALARM OR NORMAL
+        dismissCounter = 0;
+        dismiss = false;
+    }
 
 }
 
 void statusDataFunc(void* x) {
-    if(unoCounter % 5 == 0) {
+    if(0 == (int)unoCounter % 5) {
         // Dereferencing void pointer to WarningStruct
         StatusTaskData* data = (StatusTaskData*)x;
         StatusTaskData dataStruct = *data;
@@ -1004,7 +1007,7 @@ void updateCounter(void) {
 //FLASH FOR WARNING
     if(tempOutOfRange) { // EVERY 1 SEC
         digitalWrite(warningLED, state);
-        if(0 == unoCounter % 1) {
+        if(0 == (int)unoCounter % 1) {
            state = !state; 
         }
     } else if(bpOutOfRange || bpOutOfRange2) { // EVERY 0.5 SEC
@@ -1012,7 +1015,7 @@ void updateCounter(void) {
         state = !state;
     } else if(pulseOutOfRange) { // EVERY 2 SEC
         digitalWrite(warningLED, state);
-        if(0 == unoCounter % 2) {
+        if(0 == (int)unoCounter % 2) {
             state = !state;
         } 
     } else {
@@ -1248,7 +1251,7 @@ void loop(void) {
 void scheduler() {
 
     // FLAGS DEBUGGER
-    if(0 == unoCounter % 2) {
+    if(0 == (int)unoCounter % 2) {
         Serial.print("[");
         for(int i = 0; i < 6; i++) {
             Serial.print(addFlags[i]); Serial.print(" ");
@@ -1256,7 +1259,7 @@ void scheduler() {
         Serial.println("]");
     }
 
-    if(0 == unoCounter % 5) {
+    if(0 == (int)unoCounter % 5) {
 
         // Serial.println("five seconds have passed");
         for(int i = 0; i < 5; i++) { // checks add task flags
@@ -1270,7 +1273,7 @@ void scheduler() {
         }
     }
 
-    if(unoCounter > 5 && 0 == unoCounter % 2) {
+    if(unoCounter > 5 && 0 == (int)unoCounter % 2) {
         if(addFlags[5]) {
             runTask(5, true); // insert task
             delay(20);
