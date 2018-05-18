@@ -14,7 +14,8 @@
 #define END_TERM ','
 #define END_MESSAGE '<'
 
-int unoCounter = 0;
+double unoCounter = 0.5;
+int dismissCounter = 0;
 uint16_t identifier = 0;
 char requestingTaskID = 0;
 char requestedFunction = 0;
@@ -83,9 +84,10 @@ const int sizeBuf = 8;
 Elegoo_GFX_Button menuButtons[4];
 
 Elegoo_GFX_Button backButton[1]; 
+Elegoo_GFX_Button dismissButton[1];
 
 Elegoo_GFX_Button measureSelectButtons[3];
-Elegoo_GFX_Button AcknowledgeButton;
+// Elegoo_GFX_Button AcknowledgeButton;
 
 Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
@@ -106,7 +108,7 @@ int currPr;
 int currResp;
 char mode = 'N';
 
-int warningLED = 13;
+int warningLED = 45;
 
 // // index for flags (0 -> 5) : measure, compute, display, annunciate, status, keypad
 unsigned short addFlags[6] = {1, 1, 1, 0, 0, 1};
@@ -422,6 +424,9 @@ void measureDataFunc(void* data) {
         } else {
             *(dataStruct.bloodPressRawPtr + i) = diastolicPressRawBuf[i- sizeBuf];
         }
+    }
+    if(dismiss) {
+       dismissCounter++; 
     }
     
     // Change Compute Flag to addTask when new data is measured
@@ -750,11 +755,54 @@ void annunciateDataFunc(void* x) {
         battLow = false;
     }
     // Serial.println("Annunciate ended");
+    // //DISMISS BUTTON
+    // if((bpHigh || bpHigh2 || tempHigh || pulseLow || rrLow) && dismissCounter == 0) {
+    //     dismissButton[0].initButton(&tft, 125, 195, 180, 35, ILI9341_WHITE, ILI9341_RED, ILI9341_WHITE, "DISMISS", 2);
+    //     dismissButton[0].drawButton();
+    //     digitalWrite(13, HIGH);
+    //     TSPoint p = ts.getPoint();
+    //     digitalWrite(13, LOW);
+    //     pinMode(XM, OUTPUT);
+    //     pinMode(YP, OUTPUT);
+    //     if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+    //         // scale from 0->1023 to tft.width
+    //         p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+    //         p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+    //     }
+    //     if (dismissButton[0].contains(p.x, p.y)) {
+    //         dismissButton[0].press(true); // tell the button it is pressed
+    //         dismiss = true;
+    //     } else {
+    //         dismissButton[0].press(false);  // tell the button it is NOT pressed
+    //     }
+    //     if (dismissButton[0].justPressed()) {
+    //         dismissButton[0].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
+    //         dismissButton[0].drawButton();
+    //         tft.setCursor(0,0);
+    //         // STAY IN ANNUNCIATE BUT REMOVE ALARM
+    //         bpHigh = false;
+    //         bpHigh2 = false;
+    //         tempHigh = false;
+    //         pulseLow = false;
+    //         rrLow = false;
+    //         Serial.println("DISMISS BUTTON IS PRESSED");
+    //     }
+    // } else if (dismiss && dismissCounter < 5) {
+    //     bpHigh = false;
+    //     bpHigh2 = false;
+    //     tempHigh = false;
+    //     pulseLow = false;
+    //     rrLow = false;
+    // } else {
+    //     // BACK TO ALARM OR NORMAL
+    //     dismissCounter = 0;
+    //     dismiss = false;
+    // }
+
 }
 
 void statusDataFunc(void* x) {
     if(unoCounter % 5 == 0) {
-        Serial.println("Hello i am inside status");
         // Dereferencing void pointer to WarningStruct
         StatusTaskData* data = (StatusTaskData*)x;
         StatusTaskData dataStruct = *data;
@@ -948,31 +996,28 @@ void menuView() {
     }
 }
 
-// Delay for 100ms and update counter/time on peripheral system
+// Delay for 500ms and update counter/time on peripheral system
 void updateCounter(void) {
     Serial1.println('U');
-    unoCounter++;
+    unoCounter += 0.5;
 
-
-    //FLASH FOR WARNING
+//FLASH FOR WARNING
     if(tempOutOfRange) { // EVERY 1 SEC
         digitalWrite(warningLED, state);
-        state = !state;
-    } else if(bpOutOfRange || bpOutOfRange2) { // EVERY 0.5 SEC
-        for(int i = 0; i < 2; i++) {
-            digitalWrite(warningLED, state);
-            delay(500);
-            state = !state;
+        if(0 == unoCounter % 1) {
+           state = !state; 
         }
-    } else if(pulseOutOfRange) { // EVERY 2 SEC
-        if(0 == unoCounter % 2) {
-            digitalWrite(warningLED, state);
-        } 
+    } else if(bpOutOfRange || bpOutOfRange2) { // EVERY 0.5 SEC
+        digitalWrite(warningLED, state);
         state = !state;
+    } else if(pulseOutOfRange) { // EVERY 2 SEC
+        digitalWrite(warningLED, state);
+        if(0 == unoCounter % 2) {
+            state = !state;
+        } 
     } else {
         state = false;
     }
-
 }
 
 /* INITIALIZATION */
@@ -981,7 +1026,7 @@ void setup(void) {
     Serial1.begin(9600);
 
     // Initialise Timer3
-    Timer3.initialize(1000000);
+    Timer3.initialize(500000);
     Timer3.attachInterrupt(updateCounter);
     
     // Configure display
@@ -1044,6 +1089,10 @@ void setup(void) {
     tempHigh = false;
     pulseLow = false;
     battLow = false;
+    bpHigh2 = false;
+    rrLow = false;
+    state = false;
+    dismiss = false;
 
     // Point data in data structs to correct information
     // Measure
