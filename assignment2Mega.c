@@ -105,6 +105,8 @@ int currDia;
 int currPr;
 int currResp;
 
+int warningLED = 13;
+
 // // index for flags (0 -> 5) : measure, compute, display, annunciate, status, keypad
 unsigned short addFlags[6] = {1, 1, 1, 0, 0, 1};
 unsigned short removeFlags[6] = {0};
@@ -132,7 +134,8 @@ bool bpHigh = false,
     tempHigh = false,
     pulseLow = false,
     rrLow = false,
-    battLow = false;
+    battLow = false,
+    dismiss = false;
 
 // TFT Keypad
 unsigned short functionSelect = 0,
@@ -511,68 +514,68 @@ void annunciateDataFunc(void* x) {
     if (measurementSelection == 0) {
         // Respiration Rate
         rrOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-        if (rrLow) { 
+        if (rrLow && !dismiss) { 
             tft.setTextColor(RED); // Add acknowledgement event??
         }
         tft.println("Respiration rate: " + (String)*dataStruct.respirationRateCorrectedPtr + " RR");
     } else if (measurementSelection == 1) {
         // Pulse
         pulseOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-        if (pulseLow) { 
+        if (pulseLow && !dismiss) { 
             tft.setTextColor(RED); // Add acknowledgement event??
         }
         tft.println("Pulse rate: " + (String)*dataStruct.prCorrectedPtr + " BPM");
     } else if (measurementSelection == 2) {
         // Blood Pressure
         bpOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
-        if (bpHigh) { 
+        if (bpHigh && !dismiss) { 
             tft.setTextColor(RED); // Add acknowledgement event??
         }
         tft.println("Systolic pressure: " + (String)*dataStruct.bloodPressCorrectedPtr + " mm Hg");
         // Blood Pressure
         bpOutOfRange2 ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
-        if (bpHigh2) { 
+        if (bpHigh2 && !dismiss) { 
             tft.setTextColor(RED); // Add acknowledgement event??
         }
         tft.println("Diastolic pressure: " + (String)*(dataStruct.bloodPressCorrectedPtr + 8) + " mm Hg");
     } else if (measurementSelection == 3) {
         // Temperature
         tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
-        if (tempHigh) {
+        if (tempHigh && !dismiss) {
             tft.setTextColor(RED); // Add acknowledgement event??
         } 
         tft.println("Temperature: " + (String)*dataStruct.temperatureCorrectedPtr + " C");
     } else  {
         // Temperature
         tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
-        if (tempHigh) {
+        if (tempHigh && !dismiss) {
             tft.setTextColor(RED); // Add acknowledgement event??
         } 
         tft.println("Temperature: " + (String)*dataStruct.temperatureCorrectedPtr + " C");
 
         // Blood Pressure
         bpOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
-        if (bpHigh) { 
+        if (bpHigh && !dismiss) { 
             tft.setTextColor(RED); // Add acknowledgement event??
         }
         tft.println("Systolic pressure: " + (String)*dataStruct.bloodPressCorrectedPtr + " mm Hg");
         // Blood Pressure
         bpOutOfRange2 ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);    
-        if (bpHigh2) { 
+        if (bpHigh2 && !dismiss) { 
             tft.setTextColor(RED); // Add acknowledgement event??
         }
         tft.println("Diastolic pressure: " + (String)*(dataStruct.bloodPressCorrectedPtr + 8) + " mm Hg");
 
         // Pulse
         pulseOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-        if (pulseLow) { 
+        if (pulseLow && !dismiss) { 
             tft.setTextColor(RED); // Add acknowledgement event??
         }
         tft.println("Pulse rate: " + (String)*dataStruct.prCorrectedPtr + " BPM");
 
         // Respiration Rate
         rrOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-        if (rrLow) { 
+        if (rrLow && !dismiss) { 
             tft.setTextColor(RED); // Add acknowledgement event??
         }
         tft.println("Respiration rate: " + (String)*dataStruct.respirationRateCorrectedPtr + " RR");
@@ -635,26 +638,28 @@ void annunciateDataFunc(void* x) {
     //     if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     //         // scale from 0->1023 to tft.width
     //         p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-    //         p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+    //        // p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+    //         p.y = (map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
     //     }
     //     if (AcknowledgeButton.contains(p.x, p.y)) {
     //             AcknowledgeButton.press(true); // tell the button it is pressed
-
+    //             dismiss = true;
     //             //Dismiss the alarm for five seconds
 
-    //             //If signal value remains out of range for five seconds, resume alarm annunciation
+    //             //If signal value remains out of range for five measurements, resume alarm annunciation
 
     //     } else {
     //             AcknowledgeButton.press(false);  // tell the button it is NOT pressed
+    //             dismiss = false;
     //     }
     // }
 
     // check temperature:
     double normalizedTemp = *dataStruct.temperatureCorrectedPtr;
-    if (normalizedTemp < 36.1 || normalizedTemp > 37.8) {
+    if ((normalizedTemp < (36.1 * 0.95)) || (normalizedTemp > (37.8 * 1.05))) {
         // TURN TEXT RED---------
         tempOutOfRange = 1;
-        if (normalizedTemp > 40) {
+        if ((normalizedTemp < (36.1 * 0.85)) || (normalizedTemp > (37.8 * 1.15))) {
             tempHigh = true;
             // Trigger alarm event
 
@@ -666,15 +671,23 @@ void annunciateDataFunc(void* x) {
         tempHigh = false;
     }
 
+    if(tempOutOfRange) {
+        if(0 == unoCounter % 2) {
+            digitalWrite(warningLED, HIGH);
+            delay(1000);
+            digitalWrite(warningLED, LOW);
+        } 
+    }
+
     // check systolic: Instructions unclear, googled for healthy and 
     // unhealthy systolic pressures. 
     // SysPressure > 130 == High blood pressure
     // SysPressure > 160 == CALL A DOCTOR
     int normalizedSystolic = *dataStruct.bloodPressCorrectedPtr;
-    if (normalizedSystolic > 130) {
+    if ((normalizedSystolic > (120 * 0.95)) || (normalizedSystolic > (130 * 1.05))) {
         // TURN TEXT RED
         bpOutOfRange = 1;
-        if (normalizedSystolic > 160) {
+        if ((normalizedSystolic < (120 * 0.8)) || (normalizedSystolic > (130 * 1.2))) {
             bpHigh = true;
             // Trigger alarm event
 
@@ -685,16 +698,28 @@ void annunciateDataFunc(void* x) {
         bpOutOfRange = 0;
         bpHigh = false;
     }
+
+    if(bpOutOfRange || bpOutOfRange2) {
+        if(0 == unoCounter % 2) {
+            digitalWrite(warningLED, HIGH);
+            delay(500);
+            digitalWrite(warningLED, LOW);
+            delay(500);
+            digitalWrite(warningLED, HIGH);
+            delay(500);
+            digitalWrite(warningLED, LOW);
+        } 
+    }
     
     /*  IF PRESSURE CRITICALLY HIGH, need interrupt flashing warnings -----------------------------------
         User can acknowledge it to DISABLE INTERRUPT
     */
 
     double normalizedDiastolic = *(dataStruct.bloodPressCorrectedPtr + 8);
-    if (normalizedDiastolic > 90) {
+    if ((normalizedDiastolic < (70 * 0.95)) || (normalizedDiastolic > (80 * 1.05))) {
         // TURN TEXT RED
         bpOutOfRange2 = 1;
-        if (normalizedDiastolic > 120) {
+        if ((normalizedDiastolic < (70 * 0.8)) || (normalizedDiastolic > (80 * 1.2))) {
             bpHigh2 = true;
             // Trigger alarm event
 
@@ -715,9 +740,9 @@ void annunciateDataFunc(void* x) {
         */
 
     int normalizedPulse = *dataStruct.prCorrectedPtr;
-    if (normalizedPulse < 60 || normalizedPulse > 100) {
+    if ((normalizedPulse < (60 * 0.95)) || normalizedPulse > (100 * 1.05))) {
         pulseOutOfRange = 1;
-        if (normalizedPulse < 30) {
+        if ((normalizedPulse < (60 * 0.85)) || (normalizedPulse > (100 * 1.15))) {
             pulseLow = true;
             // Trigger alarm event
 
@@ -729,10 +754,17 @@ void annunciateDataFunc(void* x) {
         pulseLow = false;
     }
 
+    if(pulseOutOfRange) {
+        if(0 == unoCounter % 2) {
+            digitalWrite(warningLED, HIGH);
+        } else {
+            digitalWrite(warningLED, LOW);
+        }
+    }
     int normalizedResp = *dataStruct.respirationRateCorrectedPtr;
-    if (normalizedResp < 12 || normalizedResp > 25) {
+    if ((normalizedResp < (12 * 0.95)) || normalizedResp > (25 * 1.05))) {
         rrOutOfRange = 1;
-        if (normalizedResp < 30) {
+        if ((normalizedResp < (12 * 0.85)) || (normalizedResp > (25 * 1.15))) {
             rrLow = true;
             // Trigger alarm event
 
@@ -992,6 +1024,8 @@ void setup(void) {
     
     }
     tft.begin(identifier);
+
+    pinMode(warningLED, OUTPUT);
 
     // Set measurements to initial values
     // char* and char values are already set as global variables
