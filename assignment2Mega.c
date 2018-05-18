@@ -235,32 +235,33 @@ void requestMessage(String taskID, String funcToRun, String data) {
 
 // This function should only be run after a request message statement
 void parseMessage() {
-    while(0 == Serial1.available()) {
-        // It freezes the system till the UNO responds
-    }
+    // while(0 == Serial1.available()) {
+    //     // It freezes the system till the UNO responds
+    // }
 
-    //  read incoming byte from the mega
-    while(Serial1.available() > 0) {
-        char currChar = Serial1.read();
-        if ('>' == currChar) {
-            delay(20);
-            requestingTaskID = (char)Serial1.read();
-            Serial1.read(); //Read over terminator
+    // //  read incoming byte from the mega
+    // while(Serial1.available() > 0) {
+    //     char currChar = Serial1.read();
+    //     if ('>' == currChar) {
+    //         delay(20);
+    //         requestingTaskID = (char)Serial1.read();
+    //         Serial1.read(); //Read over terminator
 
-            delay(20);
-            requestedFunction = Serial1.read();
-            Serial1.read();
+    //         delay(20);
+    //         requestedFunction = Serial1.read();
+    //         Serial1.read();
 
-            delay(20);
-            incomingData = Serial1.parseInt();
-            Serial1.read();
-        }
-    }
+    //         delay(20);
+    //         incomingData = Serial1.parseInt();
+    //         Serial1.read();
+    //     }
+    // }
 }
 
 void measureDataFunc(void* data) {
     // Dereference data to use it
     Serial.println("Measure task started");
+    delay(20);
     MeasureTaskData* dataToMeasure = (MeasureTaskData*)data;
     MeasureTaskData dataStruct = *dataToMeasure;
     
@@ -300,6 +301,7 @@ void measureDataFunc(void* data) {
             requestMessage("M", "T", String(currTemp));
             parseMessage();
             tempMeasured = incomingData;
+            delay(100);
             break;
         case 1:
             requestMessage("M", "S", String(currSys));
@@ -314,12 +316,14 @@ void measureDataFunc(void* data) {
             requestMessage("M", "P", String(currPr));
             parseMessage();
             prMeasured = incomingData;
+            delay(100);
             break;
         case 3:
             // Added new Respiration case
             requestMessage("M", "R", String(currResp));
             parseMessage();
             respMeasured = incomingData;
+            delay(100);
             break;
         case 4:
             requestMessage("M", "T", String(currTemp));
@@ -342,6 +346,7 @@ void measureDataFunc(void* data) {
             requestMessage("M", "P", String(currPr));
             parseMessage();
             prMeasured = incomingData;
+            delay(100);
             break;
     }
     
@@ -412,10 +417,12 @@ void measureDataFunc(void* data) {
     // Change Compute Flag to addTask when new data is measured
     //addFlags[1] = 1;
     Serial.println("Measure task Ended");
+    delay(20);
 }
 
 void computeDataFunc(void* x) {
     Serial.println("!Compute task started");
+    delay(20);
     // Dereferencing void pointer to ComputeStruct
     ComputeTaskData* data = (ComputeTaskData*)x;
     ComputeTaskData dataStruct = *data;
@@ -454,6 +461,7 @@ void computeDataFunc(void* x) {
     double rrCorrected = 7 + 3 * rawResp;
     respirationRateCorrectedBuf[0] = rrCorrected;
     Serial.println("?Compute task ended");
+    delay(20);
 }
 
 
@@ -481,10 +489,12 @@ void displayDataFunc(void* x) {
     menuButtons[3].initButton(&tft, 125, 265, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EM2", 2);
     menuButtons[3].drawButton();
     Serial.println("Display task ended");
+    delay(20);
 }
 
 void annunciateDataFunc(void* x) {
     Serial.println("Annunciate started");
+    delay(20);
     
     //measurementSelection = 4; // Get all values
 
@@ -554,48 +564,49 @@ void annunciateDataFunc(void* x) {
         // Battery
         battLow ? tft.setTextColor(RED) : tft.setTextColor(GREEN);
         tft.println("Battery: " + (String)*dataStruct.batteryStatePtr);
+
     }
+    delay(50);
 
+    // // Back Button
+    // backButton[0].initButton(&tft, 125, 265, 180, 35, ILI9341_WHITE, ILI9341_RED, ILI9341_WHITE, "BACK", 2);
+    // backButton[0].drawButton();
 
-    // Back Button
-    backButton[0].initButton(&tft, 125, 265, 180, 35, ILI9341_WHITE, ILI9341_RED, ILI9341_WHITE, "BACK", 2);
-    backButton[0].drawButton();
+    // bool keepSensing = true;
+    // while (keepSensing) {
+    //     digitalWrite(13, HIGH);
+    //     TSPoint p = ts.getPoint();
+    //     digitalWrite(13, LOW);
+    //     pinMode(XM, OUTPUT);
+    //     pinMode(YP, OUTPUT);
+    //     if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+    //         // scale from 0->1023 to tft.width
+    //         p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+    //         p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+    //     }
+    //     if (backButton[0].contains(p.x, p.y)) {
+    //         backButton[0].press(true); // tell the button it is pressed
+    //         keepSensing = false;
+    //     } else {
+    //         backButton[0].press(false);  // tell the button it is NOT pressed
+    //     }
+    //     if (backButton[0].justPressed()) {
+    //         // GO BACK TO MAIN MENU, SHOULD USE SCHEDULER??
+    //         backButton[0].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
+    //         backButton[0].drawButton();
+    //         tft.setCursor(0,0);
+    //         tft.fillScreen(BLACK);
+    //         Serial.println("BACK BUTTON IS PRESSED");
 
-    bool keepSensing = true;
-    while (keepSensing) {
-        digitalWrite(13, HIGH);
-        TSPoint p = ts.getPoint();
-        digitalWrite(13, LOW);
-        pinMode(XM, OUTPUT);
-        pinMode(YP, OUTPUT);
-        if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
-            // scale from 0->1023 to tft.width
-            p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-            p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
-        }
-        if (backButton[0].contains(p.x, p.y)) {
-            backButton[0].press(true); // tell the button it is pressed
-            keepSensing = false;
-        } else {
-            backButton[0].press(false);  // tell the button it is NOT pressed
-        }
-        if (backButton[0].justPressed()) {
-            // GO BACK TO MAIN MENU, SHOULD USE SCHEDULER??
-            backButton[0].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
-            backButton[0].drawButton();
-            tft.setCursor(0,0);
-            tft.fillScreen(BLACK);
-            Serial.println("BACK BUTTON IS PRESSED");
-
-            // ADDFLAG FOR DISPLAY AND TOUCHPAD? NEED TO BRING USER BACK TO MAIN MENU
-            addFlags[0] = 0;
-            addFlags[1] = 0;
+    //         // ADDFLAG FOR DISPLAY AND TOUCHPAD? NEED TO BRING USER BACK TO MAIN MENU
+            addFlags[0] = 1;
+            addFlags[1] = 1;
             addFlags[2] = 1;
             addFlags[3] = 0;
             addFlags[4] = 0;
             addFlags[5] = 1;
-        }
-    }
+    //     }
+    // }
 
 
     // Acknowledge button SHOULD ONLY APPEAR WHEN THERE IS AN ALARM RINGING
@@ -733,6 +744,7 @@ void annunciateDataFunc(void* x) {
         battLow = false;
     }
     Serial.println("Annunciate ended");
+    delay(20);
 }
 
 void statusDataFunc(void* x) {
@@ -804,7 +816,7 @@ void KeypadDataFunc(void* x) {
                     // Setting flags in schedule 
                     // First measure everything, then annunciate everything
                     measurementSelection = 4;
-                    addFlags[0] = 1;
+                    // addFlags[0] = 1;
                     addFlags[3] = 1;
                     break;
                 } 
@@ -1125,21 +1137,20 @@ void loop(void) {
 void scheduler() {
 
      // FLAGS DEBUGGER
-    Serial.print("[");
-    for(int i = 0; i < 6; i++) {
-        Serial.print(addFlags[i]); Serial.print(" ");
-    }         
-    Serial.println("]");
+    // Serial.print("[");
+    // for(int i = 0; i < 6; i++) {
+    //     Serial.print(addFlags[i]); Serial.print(" ");
+    // }         
+    // Serial.println("]");
 
     if(0 == unoCounter % 5) {
         // delay(5000);
         Serial.println("five seconds have passed");
         for(int i = 0; i < 6; i++) { // checks add task flags
-            Serial.print(i); Serial.print(": "); Serial.println(addFlags[i]);
+            // Serial.print(i); Serial.print(": "); Serial.println(addFlags[i]);
             if(addFlags[i]) {
                 runTask(i, true); // insert task
-                delay(1000);
-                Serial.println("task added");
+                delay(50);
                 addFlags[i] = 0;    
                 removeFlags[i] = 1;
             }
@@ -1148,13 +1159,13 @@ void scheduler() {
 
     if(addFlags[3]) { // Should run regardless of time
         runTask(3, true); // insert task
+        delay(50);
         addFlags[3] = 0;
         removeFlags[3] = 1;
     }
 
     currPointer = linkedListHead;
     while(currPointer != NULL) {
-        delay(500);
         if(currPointer == &MeasureTask) {
             Serial.println("currPointer == measureTask");
         } else if (currPointer == &ComputeTask) {
@@ -1180,13 +1191,6 @@ void scheduler() {
             removeFlags[i] = 0;
         }
     }
-
-     // FLAGS DEBUGGER
-    Serial.print("[");
-    for(int i = 0; i < 6; i++) {
-        Serial.print(addFlags[i]); Serial.print(" ");
-    }         
-    Serial.println("]");
 }
 
 void runTask(int taskID, bool insertTask) {
@@ -1348,7 +1352,5 @@ void deleteNode(TCB* del) {
     del->prev->next = del->next;  
   }   
  
-  /* Finally, free the memory occupied by del*/
-  free(del);
   return;
 }     
