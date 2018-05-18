@@ -136,7 +136,7 @@ bool bpHigh = false,
 
 // TFT Keypad
 unsigned short functionSelect = 0,
-    measurementSelection = 0, alarmAcknowledge = 0;
+    measurementSelection = 4, alarmAcknowledge = 0;
 
 /* INITIALIZATION - MAKE TASK BLOCK STRUCTURE */
 struct TaskStruct {
