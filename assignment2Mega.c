@@ -757,39 +757,11 @@ void annunciateDataFunc(void* x) {
 
     Serial.println("Annunciate ended");
 
-    
+
     //DISMISS BUTTON
-    if((bpHigh || bpHigh2 || tempHigh || pulseLow || rrLow) && dismissCounter == 0) {
+    if((bpHigh || bpHigh2 || tempHigh || pulseLow || rrLow) && dismissCounter == 0 && !dismiss) {
         dismissButton[0].initButton(&tft, 125, 195, 180, 35, ILI9341_WHITE, ILI9341_RED, ILI9341_WHITE, "DISMISS", 2);
         dismissButton[0].drawButton();
-        digitalWrite(13, HIGH);
-        TSPoint p = ts.getPoint();
-        digitalWrite(13, LOW);
-        pinMode(XM, OUTPUT);
-        pinMode(YP, OUTPUT);
-        if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
-            // scale from 0->1023 to tft.width
-            p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-            p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
-        }
-        if (dismissButton[0].contains(p.x, p.y)) {
-            dismissButton[0].press(true); // tell the button it is pressed
-            dismiss = true;
-        } else {
-            dismissButton[0].press(false);  // tell the button it is NOT pressed
-        }
-        if (dismissButton[0].justPressed()) {
-            dismissButton[0].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
-            dismissButton[0].drawButton();
-            tft.setCursor(0,0);
-            // STAY IN ANNUNCIATE BUT REMOVE ALARM
-            bpHigh = false;
-            bpHigh2 = false;
-            tempHigh = false;
-            pulseLow = false;
-            rrLow = false;
-            Serial.println("DISMISS BUTTON IS PRESSED");
-        }
     } else if (dismiss && dismissCounter < 5) {
         bpHigh = false;
         bpHigh2 = false;
@@ -805,13 +777,11 @@ void annunciateDataFunc(void* x) {
 }
 
 void statusDataFunc(void* x) {
-    if(0 == (int)unoCounter % 5) {
-        // Dereferencing void pointer to WarningStruct
-        StatusTaskData* data = (StatusTaskData*)x;
-        StatusTaskData dataStruct = *data;
-        
-        *(dataStruct.batteryStatePtr) = 200 - (int)(unoCounter / 5);
-    }
+    // Dereferencing void pointer to WarningStruct
+    StatusTaskData* data = (StatusTaskData*)x;
+    StatusTaskData dataStruct = *data;
+    
+    *(dataStruct.batteryStatePtr) = 200 - (int)(unoCounter / 5);
 }
 
 void KeypadDataFunc(void* x) {
@@ -832,8 +802,9 @@ void KeypadDataFunc(void* x) {
             if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
                 // scale from 0->1023 to tft.width
                 p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-                p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+                p.y = (map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
             }
+
             if (backButton[0].contains(p.x, p.y)) {
                 backButton[0].press(true); // tell the button it is pressed
                 // keepSensing = false;
@@ -856,6 +827,26 @@ void KeypadDataFunc(void* x) {
                 addFlags[3] = 0;
                 addFlags[4] = 0;
                 addFlags[5] = 1;
+            }
+
+            if (dismissButton[0].contains(p.x, p.y)) {
+                dismissButton[0].press(true); // tell the button it is pressed
+                dismiss = true;
+            } else {
+                dismissButton[0].press(false);  // tell the button it is NOT pressed
+            }
+            
+            if (dismissButton[0].justPressed()) {
+                dismissButton[0].initButton(&tft, 0, 0, 0, 0, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "", 2);
+                dismissButton[0].drawButton();
+                tft.setCursor(0,0);
+                // STAY IN ANNUNCIATE BUT REMOVE ALARM
+                bpHigh = false;
+                bpHigh2 = false;
+                tempHigh = false;
+                pulseLow = false;
+                rrLow = false;
+                Serial.println("DISMISS BUTTON IS PRESSED");
             }
         }
     } else if ('B' == mode) {
@@ -1004,7 +995,8 @@ void updateCounter(void) {
     Serial1.println('U');
     unoCounter += 0.5;
 
-//FLASH FOR WARNING
+
+    //FLASH FOR WARNING
     if(tempOutOfRange) { // EVERY 1 SEC
         digitalWrite(warningLED, state);
         if(0 == (int)unoCounter % 1) {
