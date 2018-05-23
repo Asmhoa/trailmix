@@ -63,9 +63,9 @@
     // Fields for Analog Pulse Reader
     int pulseSensorPin;         // Pulse from Fn Gen
     int respirationSensorPin;   // Respiration from Fn Gen
-    int pulseCount;
+    volatile int pulseCount;
     int currPulseRate;
-    int respirationCount;
+    volatile int respirationCount;
     int currRespirationRate;
     float voltageReading;
 

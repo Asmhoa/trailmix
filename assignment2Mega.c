@@ -430,7 +430,7 @@ void measureDataFunc(void* data) {
     }
     
     // Change Compute Flag to addTask when new data is measured
-    //addFlags[1] = 1;
+    addFlags[1] = 1;
     // Serial.println("Measure task Ended");
     // delay(20);
 }
