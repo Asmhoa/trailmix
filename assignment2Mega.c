@@ -101,6 +101,9 @@ unsigned int temperatureRawBuf[8] = {75, 75, 75, 75, 75, 75, 75, 75};
 unsigned int bloodPressRawBuf[16] = {80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80};
 unsigned int pulseRateRawBuf[8] = {0};
 unsigned int respirationRateRawBuf[8] = {0};
+    // EKG: raw buf
+unsigned int EKGRawBuf[256] = {0};
+
 int currTemp;
 int currSys;
 int currDia;
@@ -120,6 +123,8 @@ double tempCorrectedBuf[8] = {0};
 double bloodPressCorrectedBuf[16] = {0};
 double pulseRateCorrectedBuf[8] = {0};
 double respirationRateCorrectedBuf[8] = {0};
+    // EKG: corrected freq buf
+double EKGFreqBuf[16] = {0};
 
 // Status
 unsigned short batteryState = 200;
@@ -130,6 +135,8 @@ unsigned char bpOutOfRange = 0,
     tempOutOfRange = 0,
     pulseOutOfRange = 0,
     rrOutOfRange = 0;
+        // EKG: out of range
+    EKGOutOfRange = 0;
 
 // Warning
 bool bpHigh = false,
@@ -140,6 +147,9 @@ bool bpHigh = false,
     battLow = false,
     state = false,
     dismiss = false;
+        // EKG: too high anfd too low
+    EKGLow = false;
+    EKGHigh = false;
 
 // TFT Keypad
 unsigned short functionSelect = 0,
@@ -169,23 +179,31 @@ struct DataForMeasureStruct {
     unsigned short* measurementSelectionPtr;
 }; typedef struct DataForMeasureStruct MeasureTaskData;
 
+// TODO: update compute data struct initialization
 struct DataForComputeStruct {
     unsigned int* temperatureRawPtr;
     unsigned int* bloodPressRawPtr;
     unsigned int* pulseRateRawPtr;
     unsigned int* respirationRateRawPtr;
+        // EKG: Pointer to raw buf - EKGRawBuf
+    unsigned int* EKGRawPtr;
     double* temperatureCorrectedPtr;
     double* bloodPressCorrectedPtr;
     double* prCorrectedPtr;
     double* respirationRateCorrectedPtr;
+        // EKG: Pointer to corrected freq buf - EKGFreqBuf
+    double* EKGCorrectedPtr;
     unsigned short* measurementSelectionPtr;
 }; typedef struct DataForComputeStruct ComputeTaskData;
 
+// TODO: update display data struct initialization
 struct DataForDisplayStruct {
     double* temperatureCorrectedPtr;
     double* bloodPressCorrectedPtr;
     double* prCorrectedPtr;
     double* respirationRateCorrectedPtr;
+        // EKG: Pointer to corrected freq buf - EKGFreqBuf
+    double* EKGCorrectedPtr;
     unsigned short* batteryStatePtr;
 }; typedef struct DataForDisplayStruct DisplayTaskData;
 
@@ -194,6 +212,8 @@ struct DataForWarningAlarmStruct {
     double* bloodPressCorrectedPtr;
     double* prCorrectedPtr;
     double* respirationRateCorrectedPtr;
+        // EKG: Pointer to corrected freq buf - EKGFreqBuf
+    double* EKGCorrectedPtr;
     unsigned short* batteryStatePtr;
 }; typedef struct DataForWarningAlarmStruct WarningAlarmTaskData;
 
@@ -213,7 +233,32 @@ struct DataForCommsStruct {
     double* bloodPressCorrectedPtr;
     double* prCorrectedPtr;
     double* respirationRateCorrectedPtr;
+        // EKG: Pointer to raw buf - EKGRawBuf: WHY!??!?
+    unsigned int* EKGRawPtr;
 }; typedef struct DataForCommsStruct CommsTaskData;
+
+// EKG Data struct
+struct DataForEKGStruct {
+        // EKG: Pointer to raw buf - EKGRawBuf
+    unsigned int* EKGRawPtr;
+        // EKG: Pointer to corrected freq buf - EKGFreqBuf
+    double* EKGCorrectedPtr;
+}; typedef struct DataForEKGStruct EKGTaskData;
+
+// TODO: Command Data Struct
+struct DataForCommandStruct {
+
+}; typedef struct DataForcCommandStruct CommandTaskData;
+
+// TODO: Remote Comm Data Struct
+struct DataForRemoteCommStruct {
+
+}; typedef struct DataForRemoteCommStruct RemoteCommTastData;
+
+// TODO: Traffic Management Data Struct
+struct DataForTrafficStruct {
+
+}; typedef struct DataForTrafficStruct TrafficTaskData;
 
 
 /* INITIALIZATION - MAKE INSTANCES OF TCB */
@@ -222,8 +267,9 @@ TCB ComputeTask;
 TCB DisplayTask;
 TCB AnnunciateTask;
 TCB StatusTask;
-// Newly added Keypad task
 TCB KeypadTask;
+    // EKG: Task
+TCB EKGTask;
 TCB NullTask;
 
 // Data
@@ -234,6 +280,8 @@ WarningAlarmTaskData dataForWarningAlarm;
 StatusTaskData dataForStatus;
 KeypadTaskData dataForKeypad;
 CommsTaskData dataForComms;
+    // EKG: data struct initialization
+EKGTaskData dataForEKG;
 
 // ============================================ GLOBAL VARIABLES END ===========================================================
 
@@ -268,6 +316,11 @@ void parseMessage() {
             // Serial.println(incomingData);
         }
     }
+}
+
+// TODO: implement EKG measurement Data Func
+void EKGDataFunc(void* data) {
+
 }
 
 void measureDataFunc(void* data) {
@@ -1198,6 +1251,14 @@ void setup(void) {
     KeypadTaskTMP.next = NULL;
     KeypadTaskTMP.prev = NULL;
     KeypadTask = KeypadTaskTMP;
+
+    // EKG TCB
+    TCB EKGTaskTMP;
+    EKGTaskTMP.taskFuncPtr = &EKGDataFunc
+    EKGTaskTMP.taskDataPtr = &dataForEKG;
+    EKGTaskTMP.next = NULL;
+    EKGTaskTMP.prev = NULL;
+    EKGTask = EKGTaskTMP;
 
     // NULL TCB
     TCB NullTaskTMP;
