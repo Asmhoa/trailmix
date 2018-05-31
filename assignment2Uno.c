@@ -43,7 +43,14 @@
     unsigned long lastDebounceTime2 = 0;  // the last time the output pin was toggled
 // END------------------------------- CUFF VARIABLES / CONSTANTS ------------------------------ 
 
-
+// START-----------------------------EKG BUFFER------------------------------------------------
+    #define EKG_SAMPLES 256         // Must be a power of 2
+    #define SAMPLING_FREQUENCY 1000 // Hz, must be less than 10000 due to ADC
+    
+    unsigned int sampling_period_us;
+    unsigned long microseconds;
+    String EKGUnoMeasurements;
+// END-------------------------------EKG BUFFER------------------------------------------------
 
 // OTHER GLOBALs FOR UNO
     // Updated during interrupt service routines
@@ -129,7 +136,12 @@ void setup() {
 
     pulseSensorPin = A1;    // Temperature
     respirationSensorPin = A2;    
-  
+    
+    // EKG 
+        // sampling period setting
+        sampling_period_us = round(1000000*(1.0/SAMPLING_FREQUENCY));
+        // response string initialization
+        EKGUnoMeasurements = "";
     // DEBOUNCE SWITCH
         pinMode(debounceButtonPin, INPUT);
         pinMode(debounceledPin, OUTPUT);
@@ -149,19 +161,19 @@ void setup() {
         pinMode(respirationSensorPin, INPUT);
 
     // START------------------------------ PULSE AND RESPIRATION INTERRUPTS -----------------------
-    pinMode(2, INPUT_PULLUP);
-    pinMode(3, INPUT_PULLUP);
-    
-    // Pulse Rate interrupt on rising edge
-    attachInterrupt(digitalPinToInterrupt(2), pulseReadFromFnGen, RISING);
-    
-    // Respiration Rate interrupt on rising edge
-    attachInterrupt(digitalPinToInterrupt(3), respReadFromFnGen, RISING);
+        pinMode(2, INPUT_PULLUP);
+        pinMode(3, INPUT_PULLUP);
+        
+        // Pulse Rate interrupt on rising edge
+        attachInterrupt(digitalPinToInterrupt(2), pulseReadFromFnGen, RISING);
+        
+        // Respiration Rate interrupt on rising edge
+        attachInterrupt(digitalPinToInterrupt(3), respReadFromFnGen, RISING);
 
-    // Measure RATE every 1 second
-    Timer1.initialize(1000000);
-    Timer1.attachInterrupt(measureRate);
-// END------------------------------- PULSE AND RESPIRATION INTERRUPTS -----------------------
+        // Measure RATE every 1 second
+        Timer1.initialize(1000000);
+        Timer1.attachInterrupt(measureRate);
+    // END------------------------------- PULSE AND RESPIRATION INTERRUPTS -----------------------
 }
 
 bool sysTaken = false;
@@ -193,6 +205,11 @@ void loop() {
                     break;
                 case 'R':
                     respondMessage("M", "R", String(currRespirationRate));
+                    break;
+                case 'E': // EKG MEASUREMENT
+                    EKGMeasurement();
+                    respondMessage("M", "E", EKGUnoMeasurements);
+                    EKGUnoMeasurements = ""; // Once sent, reset to empty
                     break;
             }
             
@@ -339,7 +356,7 @@ void loop() {
         // }
     // END================================= PULSE RATE (2, FN GEN) =============================
 
-    // START=============================== RESPIRATION RATE (3, FN GEN) =======================
+    // START=============================== RESPIRATION RATE (2, FN GEN) =======================
         // Measured using interrupts, triggered by rising edge
 
         // readFromFnGen(respirationSensorPin);
@@ -347,12 +364,39 @@ void loop() {
         //     currRespirationRate = respirationCount; // Should I divide this by 5 seconds to get a moving average?
         //     respirationCount = 0;
         // }
-    // END================================= RESPIRATION RATE (3, FN GEN) =======================
+    // END================================= RESPIRATION RATE (2, FN GEN) =======================
+
+    // START=============================== EKG (3, FN GEN) ====================================
+        for (int i = 0; i < EKG_SAMPLES; i++) {
+
+            microseconds = micros();    //Overflows after around 70 minutes!
+
+            EKGUnoMeasurements += String(analogRead(3) / 12) + ",";   
+
+            // 
+            while (micros() < (microseconds + sampling_period_us)) {
+            }
+        }
+        
+    // END================================= EKG (3, FN GEN) ====================================
 
 }
 
-//
-//// Runs every time there is a rising edge? Pin interrupt
+// EKG Measurement
+void EKGMeasurement() {
+    for (int i = 0; i < EKG_SAMPLES; i++) {
+
+        microseconds = micros();    //Overflows after around 70 minutes!
+
+        EKGUnoMeasurements += String(analogRead(3) / 12) + ",";   
+
+        // 
+        while (micros() < (microseconds + sampling_period_us)) {
+        }
+    }
+}
+
+// Runs every time there is a rising edge? Pin interrupt
 void pulseReadFromFnGen() {
     // Set Amplitude to 1.950
     // Set Offset to 650mV
@@ -362,7 +406,7 @@ void pulseReadFromFnGen() {
     }
 }
 
-//// Runs every time there is a rising edge? Pin interrupt
+// Runs every time there is a rising edge? Pin interrupt
 void respReadFromFnGen() {
     // Set Amplitude to 1.950
     // Set Offset to 650mV
@@ -372,7 +416,7 @@ void respReadFromFnGen() {
     }
 }
 
-//// Run every ONE second using Timer1 interrupt
+// Run every ONE second using Timer1 interrupt
 void measureRate() {
     currPulseRate = pulseCount;
     currRespirationRate = respirationCount;

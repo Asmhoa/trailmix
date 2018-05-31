@@ -14,6 +14,7 @@
 #define START_MESSAGE '>'
 #define END_TERM ','
 #define END_MESSAGE '<'
+#define EKG_SAMPLES 256
 
 double unoCounter = 0.5;
 int dismissCounter = 0;
@@ -25,266 +26,268 @@ const int sizeBuf = 8;
 
 
 // ================================================ TFT ================================================================
-/* INITIALIZATION - SETUP TFT DISPLAY */
-#define LCD_CS A3 // Chip Select goes to Analog 3
-#define LCD_CD A2 // Command/Data goes to Analog 2
-#define LCD_WR A1 // LCD Write goes to Analog 1
-#define LCD_RD A0 // LCD Read goes to Analog 0
-#define LCD_RESET A4 // Can alternately just connect to Arduino's reset pin
+    /* INITIALIZATION - SETUP TFT DISPLAY */
+    #define LCD_CS A3 // Chip Select goes to Analog 3
+    #define LCD_CD A2 // Command/Data goes to Analog 2
+    #define LCD_WR A1 // LCD Write goes to Analog 1
+    #define LCD_RD A0 // LCD Read goes to Analog 0
+    #define LCD_RESET A4 // Can alternately just connect to Arduino's reset pin
 
-#define YP A3  // must be an analog pin, use "An" notation!
-#define XM A2  // must be an analog pin, use "An" notation!
-#define YM 9   // can be a digital pin
-#define XP 8   // can be a digital pin
+    #define YP A3  // must be an analog pin, use "An" notation!
+    #define XM A2  // must be an analog pin, use "An" notation!
+    #define YM 9   // can be a digital pin
+    #define XP 8   // can be a digital pin
 
-// Assign human-readable names to some common 16-bit color values:
-#define BLACK   0x0000
-#define BLUE    0x001F
-#define RED     0xF800
-#define GREEN   0x07E0
-#define CYAN    0x07FF
-#define MAGENTA 0xF81F
-#define YELLOW  0xFFE0
-#define WHITE   0xFFFF
-#define ORANGE  0xFD40
+    // Assign human-readable names to some common 16-bit color values:
+    #define BLACK   0x0000
+    #define BLUE    0x001F
+    #define RED     0xF800
+    #define GREEN   0x07E0
+    #define CYAN    0x07FF
+    #define MAGENTA 0xF81F
+    #define YELLOW  0xFFE0
+    #define WHITE   0xFFFF
+    #define ORANGE  0xFD40
 
-// Color definitions
-#define ILI9341_BLACK       0x0000      /*   0,   0,   0 */
-#define ILI9341_NAVY        0x000F      /*   0,   0, 128 */
-#define ILI9341_DARKGREEN   0x03E0      /*   0, 128,   0 */
-#define ILI9341_DARKCYAN    0x03EF      /*   0, 128, 128 */
-#define ILI9341_MAROON      0x7800      /* 128,   0,   0 */
-#define ILI9341_PURPLE      0x780F      /* 128,   0, 128 */
-#define ILI9341_OLIVE       0x7BE0      /* 128, 128,   0 */
-#define ILI9341_LIGHTGREY   0xC618      /* 192, 192, 192 */
-#define ILI9341_DARKGREY    0x7BEF      /* 128, 128, 128 */
-#define ILI9341_BLUE        0x001F      /*   0,   0, 255 */
-#define ILI9341_GREEN       0x07E0      /*   0, 255,   0 */
-#define ILI9341_CYAN        0x07FF      /*   0, 255, 255 */
-#define ILI9341_RED         0xF800      /* 255,   0,   0 */
-#define ILI9341_MAGENTA     0xF81F      /* 255,   0, 255 */
-#define ILI9341_YELLOW      0xFFE0      /* 255, 255,   0 */
-#define ILI9341_WHITE       0xFFFF      /* 255, 255, 255 */
-#define ILI9341_ORANGE      0xFD20      /* 255, 165,   0 */
-#define ILI9341_GREENYELLOW 0xAFE5      /* 173, 255,  47 */
-#define ILI9341_PINK        0xF81F
+    // Color definitions
+    #define ILI9341_BLACK       0x0000      /*   0,   0,   0 */
+    #define ILI9341_NAVY        0x000F      /*   0,   0, 128 */
+    #define ILI9341_DARKGREEN   0x03E0      /*   0, 128,   0 */
+    #define ILI9341_DARKCYAN    0x03EF      /*   0, 128, 128 */
+    #define ILI9341_MAROON      0x7800      /* 128,   0,   0 */
+    #define ILI9341_PURPLE      0x780F      /* 128,   0, 128 */
+    #define ILI9341_OLIVE       0x7BE0      /* 128, 128,   0 */
+    #define ILI9341_LIGHTGREY   0xC618      /* 192, 192, 192 */
+    #define ILI9341_DARKGREY    0x7BEF      /* 128, 128, 128 */
+    #define ILI9341_BLUE        0x001F      /*   0,   0, 255 */
+    #define ILI9341_GREEN       0x07E0      /*   0, 255,   0 */
+    #define ILI9341_CYAN        0x07FF      /*   0, 255, 255 */
+    #define ILI9341_RED         0xF800      /* 255,   0,   0 */
+    #define ILI9341_MAGENTA     0xF81F      /* 255,   0, 255 */
+    #define ILI9341_YELLOW      0xFFE0      /* 255, 255,   0 */
+    #define ILI9341_WHITE       0xFFFF      /* 255, 255, 255 */
+    #define ILI9341_ORANGE      0xFD20      /* 255, 165,   0 */
+    #define ILI9341_GREENYELLOW 0xAFE5      /* 173, 255,  47 */
+    #define ILI9341_PINK        0xF81F
 
-#define MINPRESSURE 10
-#define MAXPRESSURE 1000
+    #define MINPRESSURE 10
+    #define MAXPRESSURE 1000
 
-//Touch For New ILI9341 TP
-#define TS_MINX 120
-#define TS_MAXX 900
+    //Touch For New ILI9341 TP
+    #define TS_MINX 120
+    #define TS_MAXX 900
 
-#define TS_MINY 70
-#define TS_MAXY 920
-// We have a status line for like, is FONA working
-#define STATUS_X 10
-#define STATUS_Y 65
+    #define TS_MINY 70
+    #define TS_MAXY 920
+    // We have a status line for like, is FONA working
+    #define STATUS_X 10
+    #define STATUS_Y 65
 
-Elegoo_GFX_Button menuButtons[4];
+    Elegoo_GFX_Button menuButtons[4];
 
-Elegoo_GFX_Button backButton[1]; 
-Elegoo_GFX_Button dismissButton[1];
+    Elegoo_GFX_Button backButton[1]; 
+    Elegoo_GFX_Button dismissButton[1];
 
-Elegoo_GFX_Button measureSelectButtons[3];
-// Elegoo_GFX_Button AcknowledgeButton;
+    Elegoo_GFX_Button measureSelectButtons[5]; // Increased size by one to accommodate EKG
+    // Elegoo_GFX_Button AcknowledgeButton;
 
-Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
+    Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
-TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
+    TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 
 // ================================================ TFT END ================================================================
 
 // ============================================ GLOBAL VARIABLES ===========================================================
-// Measurements
-unsigned int temperatureRawBuf[8] = {75, 75, 75, 75, 75, 75, 75, 75};
-unsigned int bloodPressRawBuf[16] = {80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80};
-unsigned int pulseRateRawBuf[8] = {0};
-unsigned int respirationRateRawBuf[8] = {0};
-    // EKG: raw buf
-unsigned int EKGRawBuf[256] = {0};
+    // Measurements
+    unsigned int temperatureRawBuf[8] = {75, 75, 75, 75, 75, 75, 75, 75};
+    unsigned int bloodPressRawBuf[16] = {80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80};
+    unsigned int pulseRateRawBuf[8] = {0};
+    unsigned int respirationRateRawBuf[8] = {0};
+        // EKG: raw buf
+    unsigned int EKGRawBuf[EKG_SAMPLES] = {0};
 
-int currTemp;
-int currSys;
-int currDia;
-int currPr;
-int currResp;
-char mode = 'N';
+    int currTemp;
+    int currSys;
+    int currDia;
+    int currPr;
+    int currResp;
+    int currEKG;
+    char mode = 'N';
 
-int warningLED = 45;
+    int warningLED = 45;
 
-// // index for flags (0 -> 5) : measure, compute, display, annunciate, status, keypad
-unsigned short addFlags[6] = {1, 1, 1, 0, 0, 1};
-unsigned short removeFlags[6] = {0};
-
-
-// Display
-double tempCorrectedBuf[8] = {0};
-double bloodPressCorrectedBuf[16] = {0};
-double pulseRateCorrectedBuf[8] = {0};
-double respirationRateCorrectedBuf[8] = {0};
-    // EKG: corrected freq buf
-double EKGFreqBuf[16] = {0};
-
-// Status
-unsigned short batteryState = 200;
-
-// Alarms
-unsigned char bpOutOfRange = 0,
-    bpOutOfRange2 = 0,
-    tempOutOfRange = 0,
-    pulseOutOfRange = 0,
-    rrOutOfRange = 0;
-        // EKG: out of range
-    EKGOutOfRange = 0;
-
-// Warning
-bool bpHigh = false,
-    bpHigh2 = false,
-    tempHigh = false,
-    pulseLow = false,
-    rrLow = false,
-    battLow = false,
-    state = false,
-    dismiss = false;
-        // EKG: too high anfd too low
-    EKGLow = false;
-    EKGHigh = false;
-
-// TFT Keypad
-unsigned short functionSelect = 0,
-    measurementSelection = 4, alarmAcknowledge = 0;
-
-/* INITIALIZATION - MAKE TASK BLOCK STRUCTURE */
-struct TaskStruct {
-    void (*taskFuncPtr)(void*);
-    void* taskDataPtr;
-    struct TaskStruct* next;
-    struct TaskStruct* prev;
-}; typedef struct TaskStruct TCB;
+    // index for flags (0 -> 5) : measure, compute, display, annunciate, status, keypad
+    // TODO: ADD EKG FLAG?!
+    unsigned short addFlags[6] = {1, 1, 1, 0, 0, 1};
+    unsigned short removeFlags[6] = {0};
 
 
-// HEAD OF TCB DOUBLE LINKED LIST 
-TCB* linkedListHead = NULL;
-// Traversing Pointer
-TCB* currPointer = NULL;
+    // Display
+    double tempCorrectedBuf[8] = {0};
+    double bloodPressCorrectedBuf[16] = {0};
+    double pulseRateCorrectedBuf[8] = {0};
+    double respirationRateCorrectedBuf[8] = {0};
+        // EKG: corrected freq buf
+    unsigned int EKGFreqBuf[16] = {0};
+
+    // Status
+    unsigned short batteryState = 200;
+
+    // Alarms
+    unsigned char bpOutOfRange = 0,
+        bpOutOfRange2 = 0,
+        tempOutOfRange = 0,
+        pulseOutOfRange = 0,
+        rrOutOfRange = 0;
+            // EKG: out of range
+        EKGOutOfRange = 0;
+
+    // Warning
+    bool bpHigh = false,
+        bpHigh2 = false,
+        tempHigh = false,
+        pulseLow = false,
+        rrLow = false,
+        battLow = false,
+        state = false,
+        dismiss = false;
+            // EKG: too high anfd too low
+        EKGLow = false;
+        EKGHigh = false;
+
+    // TFT Keypad
+    unsigned short functionSelect = 0,
+        measurementSelection = 4, alarmAcknowledge = 0;
+
+    /* INITIALIZATION - MAKE TASK BLOCK STRUCTURE */
+    struct TaskStruct {
+        void (*taskFuncPtr)(void*);
+        void* taskDataPtr;
+        struct TaskStruct* next;
+        struct TaskStruct* prev;
+    }; typedef struct TaskStruct TCB;
 
 
-/* INITIALIZATION - MAKE TASK DATA POINTER BLOCKS */
-struct DataForMeasureStruct {
-    unsigned int* temperatureRawPtr;
-    unsigned int* bloodPressRawPtr;
-    unsigned int* pulseRateRawPtr;
-    unsigned int* respirationRateRawPtr;
-    unsigned short* measurementSelectionPtr;
-}; typedef struct DataForMeasureStruct MeasureTaskData;
-
-// TODO: update compute data struct initialization
-struct DataForComputeStruct {
-    unsigned int* temperatureRawPtr;
-    unsigned int* bloodPressRawPtr;
-    unsigned int* pulseRateRawPtr;
-    unsigned int* respirationRateRawPtr;
-        // EKG: Pointer to raw buf - EKGRawBuf
-    unsigned int* EKGRawBufPtr;
-    double* temperatureCorrectedPtr;
-    double* bloodPressCorrectedPtr;
-    double* prCorrectedPtr;
-    double* respirationRateCorrectedPtr;
-        // EKG: Pointer to corrected freq buf - EKGFreqBuf
-    double* EKGFreqBufPtr;
-    unsigned short* measurementSelectionPtr;
-}; typedef struct DataForComputeStruct ComputeTaskData;
-
-// TODO: update display data struct initialization
-struct DataForDisplayStruct {
-    double* temperatureCorrectedPtr;
-    double* bloodPressCorrectedPtr;
-    double* prCorrectedPtr;
-    double* respirationRateCorrectedPtr;
-        // EKG: Pointer to corrected freq buf - EKGFreqBuf
-    double* EKGFreqBufPtr;
-    unsigned short* batteryStatePtr;
-}; typedef struct DataForDisplayStruct DisplayTaskData;
-
-struct DataForWarningAlarmStruct {
-    double* temperatureCorrectedPtr;
-    double* bloodPressCorrectedPtr;
-    double* prCorrectedPtr;
-    double* respirationRateCorrectedPtr;
-        // EKG: Pointer to corrected freq buf - EKGFreqBuf
-    double* EKGFreqBufPtr;
-    unsigned short* batteryStatePtr;
-}; typedef struct DataForWarningAlarmStruct WarningAlarmTaskData;
-
-struct DataForStatusStruct {
-    unsigned short* batteryStatePtr;
-}; typedef struct DataForStatusStruct StatusTaskData;
-
-struct DataForKeypadStruct {
-    char* modePtr;
-    unsigned short* measurementSelectionPtr;
-    unsigned short* alarmAcknowledgePtr;
-}; typedef struct DataForKeypadStruct KeypadTaskData;
-
-struct DataForCommsStruct {
-    unsigned short* measurementSelectionPtr;
-    double* temperatureCorrectedPtr;
-    double* bloodPressCorrectedPtr;
-    double* prCorrectedPtr;
-    double* respirationRateCorrectedPtr;
-        // EKG: Pointer to raw buf - EKGRawBuf: WHY!??!?
-    unsigned int* EKGRawBufPtr;
-}; typedef struct DataForCommsStruct CommsTaskData;
-
-// EKG Data struct
-struct DataForEKGStruct {
-        // EKG: Pointer to raw buf - EKGRawBuf
-    unsigned int* EKGRawBufPtr;
-        // EKG: Pointer to corrected freq buf - EKGFreqBuf
-    double* EKGFreqBufPtr;
-}; typedef struct DataForEKGStruct EKGTaskData;
-
-// TODO: Command Data Struct
-struct DataForCommandStruct {
-
-}; typedef struct DataForcCommandStruct CommandTaskData;
-
-// TODO: Remote Comm Data Struct
-struct DataForRemoteCommStruct {
-
-}; typedef struct DataForRemoteCommStruct RemoteCommTastData;
-
-// TODO: Traffic Management Data Struct
-struct DataForTrafficStruct {
-
-}; typedef struct DataForTrafficStruct TrafficTaskData;
+    // HEAD OF TCB DOUBLE LINKED LIST 
+    TCB* linkedListHead = NULL;
+    // Traversing Pointer
+    TCB* currPointer = NULL;
 
 
-/* INITIALIZATION - MAKE INSTANCES OF TCB */
-TCB MeasureTask;
-TCB ComputeTask;
-TCB DisplayTask;
-TCB AnnunciateTask;
-TCB StatusTask;
-TCB KeypadTask;
-    // EKG: Capture Task
-TCB EKGCaptureTask;
-    // EKG: Process Task
-TCB EKGProcessTask;
-TCB NullTask;
+    /* INITIALIZATION - MAKE TASK DATA POINTER BLOCKS */
+    struct DataForMeasureStruct {
+        unsigned int* temperatureRawPtr;
+        unsigned int* bloodPressRawPtr;
+        unsigned int* pulseRateRawPtr;
+        unsigned int* respirationRateRawPtr;
+        unsigned short* measurementSelectionPtr;
+    }; typedef struct DataForMeasureStruct MeasureTaskData;
 
-// Data
-MeasureTaskData dataForMeasure;
-ComputeTaskData dataForCompute;
-DisplayTaskData dataForDisplay;
-WarningAlarmTaskData dataForWarningAlarm;
-StatusTaskData dataForStatus;
-KeypadTaskData dataForKeypad;
-CommsTaskData dataForComms;
-    // EKG: data struct initialization
-EKGTaskData dataForEKG;
+    // TODO: update compute data struct initialization
+    struct DataForComputeStruct {
+        unsigned int* temperatureRawPtr;
+        unsigned int* bloodPressRawPtr;
+        unsigned int* pulseRateRawPtr;
+        unsigned int* respirationRateRawPtr;
+            // EKG: Pointer to raw buf - EKGRawBuf
+        unsigned int* EKGRawBufPtr;
+        double* temperatureCorrectedPtr;
+        double* bloodPressCorrectedPtr;
+        double* prCorrectedPtr;
+        double* respirationRateCorrectedPtr;
+            // EKG: Pointer to corrected freq buf - EKGFreqBuf
+        unsigned int* EKGFreqBufPtr;
+        unsigned short* measurementSelectionPtr;
+    }; typedef struct DataForComputeStruct ComputeTaskData;
+
+    // TODO: update display data struct initialization
+    struct DataForDisplayStruct {
+        double* temperatureCorrectedPtr;
+        double* bloodPressCorrectedPtr;
+        double* prCorrectedPtr;
+        double* respirationRateCorrectedPtr;
+            // EKG: Pointer to corrected freq buf - EKGFreqBuf
+        unsigned int* EKGFreqBufPtr;
+        unsigned short* batteryStatePtr;
+    }; typedef struct DataForDisplayStruct DisplayTaskData;
+
+    struct DataForWarningAlarmStruct {
+        double* temperatureCorrectedPtr;
+        double* bloodPressCorrectedPtr;
+        double* prCorrectedPtr;
+        double* respirationRateCorrectedPtr;
+            // EKG: Pointer to corrected freq buf - EKGFreqBuf
+        unsigned int* EKGFreqBufPtr;
+        unsigned short* batteryStatePtr;
+    }; typedef struct DataForWarningAlarmStruct WarningAlarmTaskData;
+
+    struct DataForStatusStruct {
+        unsigned short* batteryStatePtr;
+    }; typedef struct DataForStatusStruct StatusTaskData;
+
+    struct DataForKeypadStruct {
+        char* modePtr;
+        unsigned short* measurementSelectionPtr;
+        unsigned short* alarmAcknowledgePtr;
+    }; typedef struct DataForKeypadStruct KeypadTaskData;
+
+    struct DataForCommsStruct {
+        unsigned short* measurementSelectionPtr;
+        double* temperatureCorrectedPtr;
+        double* bloodPressCorrectedPtr;
+        double* prCorrectedPtr;
+        double* respirationRateCorrectedPtr;
+            // EKG: Pointer to raw buf - EKGRawBuf: WHY!??!?
+        unsigned int* EKGRawBufPtr;
+    }; typedef struct DataForCommsStruct CommsTaskData;
+
+    // EKG Data struct
+    struct DataForEKGStruct {
+            // EKG: Pointer to raw buf - EKGRawBuf
+        unsigned int* EKGRawBufPtr;
+            // EKG: Pointer to corrected freq buf - EKGFreqBuf
+        unsigned int* EKGFreqBufPtr;
+    }; typedef struct DataForEKGStruct EKGTaskData;
+
+    // TODO: Command Data Struct
+    struct DataForCommandStruct {
+
+    }; typedef struct DataForcCommandStruct CommandTaskData;
+
+    // TODO: Remote Comm Data Struct
+    struct DataForRemoteCommStruct {
+
+    }; typedef struct DataForRemoteCommStruct RemoteCommTastData;
+
+    // TODO: Traffic Management Data Struct
+    struct DataForTrafficStruct {
+
+    }; typedef struct DataForTrafficStruct TrafficTaskData;
+
+
+    /* INITIALIZATION - MAKE INSTANCES OF TCB */
+    TCB MeasureTask;
+    TCB ComputeTask;
+    TCB DisplayTask;
+    TCB AnnunciateTask;
+    TCB StatusTask;
+    TCB KeypadTask;
+        // EKG: Capture Task
+    TCB EKGCaptureTask;
+        // EKG: Process Task
+    TCB EKGProcessTask;
+    TCB NullTask;
+
+    // Data
+    MeasureTaskData dataForMeasure;
+    ComputeTaskData dataForCompute;
+    DisplayTaskData dataForDisplay;
+    WarningAlarmTaskData dataForWarningAlarm;
+    StatusTaskData dataForStatus;
+    KeypadTaskData dataForKeypad;
+    CommsTaskData dataForComms;
+        // EKG: data struct initialization
+    EKGTaskData dataForEKG;
 
 // ============================================ GLOBAL VARIABLES END ===========================================================
 
@@ -321,14 +324,54 @@ void parseMessage() {
     }
 }
 
-// TODO: implement EKG capture Data Func
-void EKGCaptureDataFunc(void* data) {
-    // Fetch data for buffer
+// Parses EKG Return Message (256 element array that looks like : 2, 3, 4, 5, 1,)
+void parseEKGArray() {
+    while(0 == Serial1.available()) {
+        // It freezes the system till the UNO responds
+    }
+    int i = 0;
+    while(Serial1.available() > 0) {
+        delay(20);
+        // TODO: Need to use data struct zzzzzzzz
+        EKGRawBuf[i] = Serial1.parseInt();
+        Serial1.read();
+        i++;
+        // Serial.println(incomingData);
+    }
 }
 
-// TODO: implement EKG process data func
+void EKGCaptureDataFunc(void* data) {
+    // Request EKG measurement
+    requestMessage("M", "E", "");
+    // Parse EKG return message. Fetch data for buffer, get all 256.
+    parseEKGArray();
+    // Now set the flag to run EKG Process
+}
+
 void EKGProcessDataFunc(void* data) {
-    // Use FFT here to get frequency
+
+    // TODO: Actually use data struct?
+    EKGTaskData* dataToMeasure = (EKGTaskData*)data;
+    EKGTaskData dataStruct = *dataToMeasure;
+
+    // Use Fast Fourier Transform here to get frequency
+    double vReal[EKG_SAMPLES];
+    double vImag[EKG_SAMPLES];
+    // Transferring analog reader values to vReal for FFT
+    for (int i = 0; i < EKG_SAMPLES; i++) {
+        vReal[i] = EKGRawBuf[i];
+        vImag[i] = 0;
+    }
+    FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+    FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
+    FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
+    double peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
+
+    // Store this in the EKGFreqBuf, keep a 16-element buffer    
+    for(i = 15; i > 0; i--) {
+        EKGFreqBuf[i] = EKGFreqBuf[i - 1];
+    }
+    EKGFreqBuf[0] = (int) peak;
 }
 
 void measureDataFunc(void* data) {
@@ -399,6 +442,9 @@ void measureDataFunc(void* data) {
             delay(20);
             break;
         case 4:
+            // TODO: Run EKG TCB?? Or should Measurement also have the power to request for EKG reading
+            // currEKG =
+        case 5:
             requestMessage("M", "T", String(currTemp));
             parseMessage();
             tempMeasured = incomingData;
@@ -411,7 +457,6 @@ void measureDataFunc(void* data) {
             parseMessage();
             currDia = incomingData;
             delay(20);
-            // Added respiration to case 4
             requestMessage("M", "R", String(currResp));
             parseMessage();
             respMeasured = incomingData;
@@ -419,6 +464,9 @@ void measureDataFunc(void* data) {
             requestMessage("M", "P", String(currPr));
             parseMessage();
             prMeasured = incomingData;
+            delay(20);
+            // TODO: Run EKG TCB?? Or should Measurement also have the power to request for EKG reading
+            // currEKG = 
             delay(20);
             break;
     }
@@ -617,7 +665,13 @@ void annunciateDataFunc(void* x) {
             }
             tft.println("Resp.: " + (String)*dataStruct.respirationRateCorrectedPtr + " RR");
             break;
-        case 4: // Everything
+        case 4: // EKG
+            EKGOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
+            if (EKGLow || EKGHigh) { 
+                tft.setTextColor(RED); // Add acknowledgement event??
+            }
+            tft.println("EKG: " + (String)*dataStruct.EKGFreqBufPtr + " RR");
+        case 5: // Everything
             mode = 'A';
 
              // Temperature
@@ -653,6 +707,13 @@ void annunciateDataFunc(void* x) {
                 tft.setTextColor(RED); // Add acknowledgement event??
             }
             tft.println("Resp.: " + (String)*dataStruct.respirationRateCorrectedPtr + " RR");
+
+            // EKG Readings
+            EKGOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
+            if (EKGLow || EKGHigh) { 
+                tft.setTextColor(RED); // Add acknowledgement event??
+            }
+            tft.println("EKG: " + (String)*dataStruct.EKGFreqBufPtr + " RR");
 
             // Battery
             battLow ? tft.setTextColor(RED) : tft.setTextColor(GREEN);
@@ -799,19 +860,10 @@ void annunciateDataFunc(void* x) {
         rrOutOfRange = 0;
         rrLow = false;
     }
-    
-    // battery
-    // HEALTHY BATTERY LEVEL => Battery level above 20%
-    // //printf("BATT LEVEL: %f\n", batteryLevel);
-
-        /*  IF BATTERY CRITICALLY LOW, need interrupt flashing warnings -----------------------------------
-            User can acknowledge it to DISABLE INTERRUPT
-        */
 
     if (batteryState < 40) {
         battLow = true;
         // Trigger alarm event
-
     } else {
         battLow = false;
     }
@@ -879,7 +931,7 @@ void KeypadDataFunc(void* x) {
                 tft.fillScreen(BLACK);
                 Serial.println("BACK BUTTON IS PRESSED");
                 mode = 'B';
-                measurementSelection = 5;
+                measurementSelection = 6; // Changed from 5 to 6
 
                 // ADDFLAG FOR DISPLAY AND TOUCHPAD? NEED TO BRING USER BACK TO MAIN MENU
                 addFlags[0] = 1;
@@ -959,7 +1011,8 @@ void KeypadDataFunc(void* x) {
                         tft.fillScreen(BLACK);
                         // Setting flags in schedule 
                         // First measure everything, then annunciate everything
-                        measurementSelection = 4;
+                        measurementSelection = 5;
+                        // TODO: CORRECT THESE FLAGS, need to include EKG
                         addFlags[0] = 1;
                         addFlags[1] = 1;
                         addFlags[3] = 1;
@@ -986,6 +1039,10 @@ void menuView() {
 
     measureSelectButtons[3].initButton(&tft, 125, 265, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Resp.", 2);
     measureSelectButtons[3].drawButton();
+
+    // TODO: Need to fix the dimensions for EKG
+    measureSelectButtons[4].initButton(&tft, 125, 265, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EKG", 2);
+    measureSelectButtons[4].drawButton(); 
     
     // Mode is N
     bool staySensingPress = true;
@@ -1004,7 +1061,7 @@ void menuView() {
             p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
         }
 
-        for (uint8_t b = 0; b < 4; b++) {
+        for (uint8_t b = 0; b < 5; b++) {
             if (measureSelectButtons[b].contains(p.x, p.y)) {
                 // Serial.print("Pressing: "); Serial.println(b);
                 measureSelectButtons[b].press(true); // tell the button it is pressed
@@ -1018,33 +1075,37 @@ void menuView() {
             }
         }
 
-        for (uint8_t b = 0; b < 4; b++) {
-
+        for (uint8_t b = 0; b < 5; b++) {
+            // TODO: FIX THE FLAGS ARRAY
             if (measureSelectButtons[b].justPressed()) {
                 mode = 'A';
-                if (3 == b) { // Temperature
+                if (4 == b) { // Temperature
                     staySensingPress = false;
                     measurementSelection = 0;
                     addFlags[3] = 1;
                     // Go to Annunciate
 
-                } else if (2 == b) { // BP
+                } else if (3 == b) { // BP
                     staySensingPress = false;
                     measurementSelection = 1;
                     addFlags[3] = 1;
                     // Go to Annunciate
 
-                } else if (1 == b) { // Pulse
+                } else if (2 == b) { // Pulse
                     measurementSelection = 2;
                     staySensingPress = false;
                     addFlags[3] = 1;
                     // Go to Annunciate
 
-                } else if (0 == b) { // respiration
+                } else if (1 == b) { // respiration
                     measurementSelection = 3;
                     staySensingPress = false;
                     addFlags[3] = 1;
                     // Go to Annunciate
+                } else if (0 == b) { // EKG
+                    measurementSelection = 4;
+                    staySensingPress = false;
+                    addFlags[3] = 1;
                 }
             }
         }
