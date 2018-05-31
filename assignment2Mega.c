@@ -8,6 +8,7 @@
 #include <Elegoo_TFTLCD.h> // Hardware-specific library
 #include <TouchScreen.h>
 #include <TimerThree.h> // SYSTEM TICK
+#include <arduinoFFT.h> //
 
 /* SERIAL COMMUNICATIONS CONSTANT */
 #define START_MESSAGE '>'
@@ -322,12 +323,12 @@ void parseMessage() {
 
 // TODO: implement EKG capture Data Func
 void EKGCaptureDataFunc(void* data) {
-
+    // Fetch data for buffer
 }
 
 // TODO: implement EKG process data func
 void EKGProcessDataFunc(void* data) {
-
+    // Use FFT here to get frequency
 }
 
 void measureDataFunc(void* data) {
