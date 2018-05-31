@@ -116,10 +116,10 @@ const int sizeBuf = 8;
 
     int warningLED = 45;
 
-    // index for flags (0 -> 5) : measure, compute, display, annunciate, status, keypad
-    // TODO: ADD EKG FLAG?!
-    unsigned short addFlags[6] = {1, 1, 1, 0, 0, 1};
-    unsigned short removeFlags[6] = {0};
+    // index for flags (0 -> 7) : measure, compute, display, annunciate, status, keypad, EKG Capture, EKG Process
+    // TODO: WHAT WOULD BE THE INITIAL FLAG FOR EKG CAPTURE?
+    unsigned short addFlags[8] = {1, 1, 1, 0, 0, 1, 0, 0};
+    unsigned short removeFlags[8] = {0};
 
 
     // Display
@@ -326,16 +326,21 @@ void parseMessage() {
 
 // Parses EKG Return Message (256 element array that looks like : 2, 3, 4, 5, 1,)
 void parseEKGArray() {
+    EKGTaskData* dataToMeasure = (EKGTaskData*)data;
+    EKGTaskData dataStruct = *dataToMeasure;
+
     while(0 == Serial1.available()) {
         // It freezes the system till the UNO responds
     }
     int i = 0;
     while(Serial1.available() > 0) {
         delay(20);
-        // TODO: Need to use data struct zzzzzzzz
-        EKGRawBuf[i] = Serial1.parseInt();
-        Serial1.read();
-        i++;
+        if(i < EKG_SAMPLES) {
+            *(dataStruct.EKGRawBufPtr + i) = Serial1.parseInt();
+            //EKGRawBuf[i] = Serial1.parseInt();
+            Serial1.read();
+            i++;
+        }
         // Serial.println(incomingData);
     }
 }
@@ -346,6 +351,7 @@ void EKGCaptureDataFunc(void* data) {
     // Parse EKG return message. Fetch data for buffer, get all 256.
     parseEKGArray();
     // Now set the flag to run EKG Process
+    addFlags[7] = 1;
 }
 
 void EKGProcessDataFunc(void* data) {
@@ -354,12 +360,18 @@ void EKGProcessDataFunc(void* data) {
     EKGTaskData* dataToMeasure = (EKGTaskData*)data;
     EKGTaskData dataStruct = *dataToMeasure;
 
+    unsigned int EKGFreqBufTemp[16];
+    for(i = 0; i < 16; i++) {
+        EKGFreqBufTemp[i] = *(dataStruct.EKGFreqBufPtr + i);
+    }
+
     // Use Fast Fourier Transform here to get frequency
     double vReal[EKG_SAMPLES];
     double vImag[EKG_SAMPLES];
     // Transferring analog reader values to vReal for FFT
     for (int i = 0; i < EKG_SAMPLES; i++) {
-        vReal[i] = EKGRawBuf[i];
+        //vReal[i] = EKGRawBuf[i];
+        vReal[i] = *(dataStruct.EKGRawBufPtr + i);
         vImag[i] = 0;
     }
     FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
@@ -369,9 +381,13 @@ void EKGProcessDataFunc(void* data) {
 
     // Store this in the EKGFreqBuf, keep a 16-element buffer    
     for(i = 15; i > 0; i--) {
-        EKGFreqBuf[i] = EKGFreqBuf[i - 1];
+        //EKGFreqBuf[i] = EKGFreqBuf[i - 1];
+        EKGRawBufTemp[i] = EKGRawBufTemp[i-1];
     }
-    EKGFreqBuf[0] = (int) peak;
+    EKGRawBufTemp[0] = (int) peak;
+    for(i = 0; i < 16; i++) {
+        *(dataStruct.EKGRawPtr + i) = EKGRawBufTemp[i];
+    }
 }
 
 void measureDataFunc(void* data) {
@@ -667,10 +683,10 @@ void annunciateDataFunc(void* x) {
             break;
         case 4: // EKG
             EKGOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-            if (EKGLow || EKGHigh) { 
-                tft.setTextColor(RED); // Add acknowledgement event??
-            }
-            tft.println("EKG: " + (String)*dataStruct.EKGFreqBufPtr + " RR");
+            // if (EKGLow || EKGHigh) { 
+            //     tft.setTextColor(RED); // Add acknowledgement event??
+            // }
+            tft.println("EKG: " + (String)*dataStruct.EKGFreqBufPtr + " HZ");
         case 5: // Everything
             mode = 'A';
 
@@ -710,10 +726,10 @@ void annunciateDataFunc(void* x) {
 
             // EKG Readings
             EKGOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);        
-            if (EKGLow || EKGHigh) { 
-                tft.setTextColor(RED); // Add acknowledgement event??
-            }
-            tft.println("EKG: " + (String)*dataStruct.EKGFreqBufPtr + " RR");
+            // if (EKGLow || EKGHigh) { 
+            //     tft.setTextColor(RED); // Add acknowledgement event??
+            // }
+            tft.println("EKG: " + (String)*dataStruct.EKGFreqBufPtr + " HZ");
 
             // Battery
             battLow ? tft.setTextColor(RED) : tft.setTextColor(GREEN);
@@ -730,6 +746,8 @@ void annunciateDataFunc(void* x) {
         addFlags[3] = 1;
         addFlags[4] = 1;
         addFlags[5] = 1;
+        addFlags[6] = 0;
+        addFlags[7] = 0;
 
         // Back Button
         backButton[0].initButton(&tft, 125, 265, 180, 35, ILI9341_WHITE, ILI9341_RED, ILI9341_WHITE, "MAIN", 2);
@@ -868,6 +886,11 @@ void annunciateDataFunc(void* x) {
         battLow = false;
     }
 
+    int normalizedEKG = *dataStruct.EKGFreqBufPtr;
+    if(normalizedEKG < 35 || normalizedEKG > 3750) {
+        EKGOutOfRange = 1;
+    }
+
     Serial.println("Annunciate ended");
 
 
@@ -940,6 +963,8 @@ void KeypadDataFunc(void* x) {
                 addFlags[3] = 0;
                 addFlags[4] = 0;
                 addFlags[5] = 1;
+                addFlags[6] = 0;
+                addFlags[7] = 0;
             }
 
             if (dismissButton[0].contains(p.x, p.y)) {
@@ -970,6 +995,8 @@ void KeypadDataFunc(void* x) {
         addFlags[3] = 0;
         addFlags[4] = 0;
         addFlags[5] = 1;
+        addFlags[6] = 0;
+        addFlags[7] = 0;
     } else {
         bool keepSensing = true;
         while (keepSensing) {
@@ -1016,6 +1043,8 @@ void KeypadDataFunc(void* x) {
                         addFlags[0] = 1;
                         addFlags[1] = 1;
                         addFlags[3] = 1;
+                        addFlags[6] = 1;
+                        //addFlags[7] = 1;
                         break;
                     } 
                 }
@@ -1028,20 +1057,19 @@ void KeypadDataFunc(void* x) {
 
 void menuView() {
     // Serial.println("Menu View started");
-    measureSelectButtons[0].initButton(&tft, 125, 55, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Temp", 2);
+    measureSelectButtons[0].initButton(&tft, 125, 40, 180, 35, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Temp", 2);
     measureSelectButtons[0].drawButton();
 
-    measureSelectButtons[1].initButton(&tft, 125, 125, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Blood Pr.", 2);
+    measureSelectButtons[1].initButton(&tft, 125, 95, 180, 35, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Blood Pr.", 2);
     measureSelectButtons[1].drawButton();
 
-    measureSelectButtons[2].initButton(&tft, 125, 195, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Pulse", 2);
+    measureSelectButtons[2].initButton(&tft, 125, 150, 180, 35, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Pulse", 2);
     measureSelectButtons[2].drawButton();
 
-    measureSelectButtons[3].initButton(&tft, 125, 265, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Resp.", 2);
+    measureSelectButtons[3].initButton(&tft, 125, 205, 180, 35, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Resp.", 2);
     measureSelectButtons[3].drawButton();
 
-    // TODO: Need to fix the dimensions for EKG
-    measureSelectButtons[4].initButton(&tft, 125, 265, 180, 50, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EKG", 2);
+    measureSelectButtons[4].initButton(&tft, 125, 260, 180, 35, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "EKG", 2);
     measureSelectButtons[4].drawButton(); 
     
     // Mode is N
@@ -1069,6 +1097,9 @@ void menuView() {
                 tft.fillScreen(BLACK);
                 addFlags[0] = 1;
                 addFlags[1] = 1;
+                if(0 == b) {
+                    addFlags[6] = 1;
+                }
                 staySensingPress = false;
             } else {
                 menuButtons[b].press(false);  // tell the button it is NOT pressed
@@ -1226,10 +1257,12 @@ void setup(void) {
     dataForComputeTMP.temperatureRawPtr = temperatureRawBuf;
     dataForComputeTMP.bloodPressRawPtr = bloodPressRawBuf;
     dataForComputeTMP.pulseRateRawPtr = pulseRateRawBuf;
+    dataForComputeTMP.EKGRawBufPtr = EKGRawBuf;
     dataForComputeTMP.temperatureCorrectedPtr = tempCorrectedBuf; // Already a pointer
     dataForComputeTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
     dataForComputeTMP.prCorrectedPtr = pulseRateCorrectedBuf;
     dataForComputeTMP.respirationRateCorrectedPtr = respirationRateCorrectedBuf;
+    dataForComputeTMP.EKGFreqBufPtr = EKGFreqBuf;
     dataForComputeTMP.measurementSelectionPtr = &measurementSelection;
     dataForCompute = dataForComputeTMP;
 
@@ -1239,6 +1272,7 @@ void setup(void) {
     dataForDisplayTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
     dataForDisplayTMP.prCorrectedPtr = pulseRateCorrectedBuf;
     dataForDisplayTMP.respirationRateCorrectedPtr = respirationRateCorrectedBuf;
+    dataForDisplayTMP.EKGFreqBufPtr = EKGFreqBuf;
     dataForDisplayTMP.batteryStatePtr = &batteryState;
     dataForDisplay = dataForDisplayTMP;
 
@@ -1248,6 +1282,7 @@ void setup(void) {
     dataForWarningAlarmTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
     dataForWarningAlarmTMP.prCorrectedPtr = pulseRateCorrectedBuf;
     dataForWarningAlarmTMP.respirationRateCorrectedPtr = respirationRateCorrectedBuf;
+    dataForWarningAlarmTMP.EKGFreqBufPtr = EKGFreqBuf;
     dataForWarningAlarmTMP.batteryStatePtr = &batteryState;
     dataForWarningAlarm = dataForWarningAlarmTMP;
 
@@ -1270,7 +1305,14 @@ void setup(void) {
     dataForCommsTMP.bloodPressCorrectedPtr = bloodPressCorrectedBuf;
     dataForCommsTMP.prCorrectedPtr = pulseRateCorrectedBuf;
     dataForCommsTMP.respirationRateCorrectedPtr = respirationRateCorrectedBuf;
+    dataForCommsTMP.EKGRawBufPtr = EKGRawBuf;
     dataForComms = dataForCommsTMP;
+
+    // EKG
+    EKGTaskData dataForEKGTMP;
+    dataForEKGTMP.EKGRawBufPtr = EKGRawBuf;
+    dataForEKGTMP.tEKGFreqBufPtr = EKGFreqBuf;
+    dataForEKG = dataForEKGTMP;
     
     // Assign values in TCB's
     // Measure
@@ -1392,7 +1434,7 @@ void scheduler() {
     if(0 == (int)unoCounter % 5) {
 
         // Serial.println("five seconds have passed");
-        for(int i = 0; i < 5; i++) { // checks add task flags
+        for(int i = 0; i < 8; i++) { // checks add task flags
             // Serial.print(i); Serial.print(": "); Serial.println(addFlags[i]);
             if(addFlags[i]) {
                 runTask(i, true); // insert task
@@ -1412,19 +1454,16 @@ void scheduler() {
         }
     }
 
-    if(addFlags[3]) { // Should run regardless of time
-        runTask(3, true); // insert task
-        delay(20);
-        addFlags[3] = 0;
-        removeFlags[3] = 1;
+    int index;
+    if(2 == index || 3 == index || 6 == index || 7 == index) {
+        if(addFlags[index]) {
+            runTask(index, true); // insert task
+            delay(20);
+            addFlags[index] = 0;
+            removeFlags[index] = 1;
+        }
     }
-
-    if(addFlags[2]) { // Should run regardless of time
-        runTask(2, true); // insert task
-        delay(20);
-        addFlags[2] = 0;
-        removeFlags[2] = 1;
-    }
+    
 
     currPointer = linkedListHead;
     while(currPointer != NULL) {
@@ -1440,6 +1479,10 @@ void scheduler() {
             Serial.println("currPointer == statusTask");
         } else if (currPointer == &KeypadTask) {
             Serial.println("currPointer == keypadTask");
+        } else if (currPointer == &EKGCaptureTask) {
+            Serial.println("currPointer == EKGCaptureTask");
+        } else if (currPointer == &EKGProcessTask) {
+            Serial.println("currPointer == EKGProcessTask");
         }
         delay(20);
        // currPointer->taskFuncPtr(currPointer->taskDataPtr);
@@ -1448,7 +1491,7 @@ void scheduler() {
         currPointer = currPointer->next; // moves current pointer to the next task
     }
 
-    for(int i = 0; i < 6; i++) { // checks remove task flags
+    for(int i = 0; i < 8; i++) { // checks remove task flags
         if(removeFlags[i]) {
             runTask(i, false); // remove task
             removeFlags[i] = 0;
@@ -1510,6 +1553,20 @@ void runTask(int taskID, bool insertTask) {
             } else {
                 deleteNode(&KeypadTask);
                 // Serial.println("KeyPadTask deleted");
+            }
+        break;
+        case 6:
+            if(insertTask) {
+                appendAtEnd(&EKGCaptureTask);
+            } else {
+                deleteNode(&EKGCaptureTask);
+            }
+        break;
+        case 5:
+            if(insertTask) {
+                appendAtEnd(&EKGProcessTask);
+            } else {
+                deleteNode(&EKGProcessTask);
             }
         break;
     }
