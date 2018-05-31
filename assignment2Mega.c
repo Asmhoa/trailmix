@@ -186,13 +186,13 @@ struct DataForComputeStruct {
     unsigned int* pulseRateRawPtr;
     unsigned int* respirationRateRawPtr;
         // EKG: Pointer to raw buf - EKGRawBuf
-    unsigned int* EKGRawPtr;
+    unsigned int* EKGRawBufPtr;
     double* temperatureCorrectedPtr;
     double* bloodPressCorrectedPtr;
     double* prCorrectedPtr;
     double* respirationRateCorrectedPtr;
         // EKG: Pointer to corrected freq buf - EKGFreqBuf
-    double* EKGCorrectedPtr;
+    double* EKGFreqBufPtr;
     unsigned short* measurementSelectionPtr;
 }; typedef struct DataForComputeStruct ComputeTaskData;
 
@@ -203,7 +203,7 @@ struct DataForDisplayStruct {
     double* prCorrectedPtr;
     double* respirationRateCorrectedPtr;
         // EKG: Pointer to corrected freq buf - EKGFreqBuf
-    double* EKGCorrectedPtr;
+    double* EKGFreqBufPtr;
     unsigned short* batteryStatePtr;
 }; typedef struct DataForDisplayStruct DisplayTaskData;
 
@@ -213,7 +213,7 @@ struct DataForWarningAlarmStruct {
     double* prCorrectedPtr;
     double* respirationRateCorrectedPtr;
         // EKG: Pointer to corrected freq buf - EKGFreqBuf
-    double* EKGCorrectedPtr;
+    double* EKGFreqBufPtr;
     unsigned short* batteryStatePtr;
 }; typedef struct DataForWarningAlarmStruct WarningAlarmTaskData;
 
@@ -234,15 +234,15 @@ struct DataForCommsStruct {
     double* prCorrectedPtr;
     double* respirationRateCorrectedPtr;
         // EKG: Pointer to raw buf - EKGRawBuf: WHY!??!?
-    unsigned int* EKGRawPtr;
+    unsigned int* EKGRawBufPtr;
 }; typedef struct DataForCommsStruct CommsTaskData;
 
 // EKG Data struct
 struct DataForEKGStruct {
         // EKG: Pointer to raw buf - EKGRawBuf
-    unsigned int* EKGRawPtr;
+    unsigned int* EKGRawBufPtr;
         // EKG: Pointer to corrected freq buf - EKGFreqBuf
-    double* EKGCorrectedPtr;
+    double* EKGFreqBufPtr;
 }; typedef struct DataForEKGStruct EKGTaskData;
 
 // TODO: Command Data Struct
@@ -268,8 +268,10 @@ TCB DisplayTask;
 TCB AnnunciateTask;
 TCB StatusTask;
 TCB KeypadTask;
-    // EKG: Task
-TCB EKGTask;
+    // EKG: Capture Task
+TCB EKGCaptureTask;
+    // EKG: Process Task
+TCB EKGProcessTask;
 TCB NullTask;
 
 // Data
@@ -318,8 +320,13 @@ void parseMessage() {
     }
 }
 
-// TODO: implement EKG measurement Data Func
-void EKGDataFunc(void* data) {
+// TODO: implement EKG capture Data Func
+void EKGCaptureDataFunc(void* data) {
+
+}
+
+// TODO: implement EKG process data func
+void EKGProcessDataFunc(void* data) {
 
 }
 
@@ -1252,13 +1259,21 @@ void setup(void) {
     KeypadTaskTMP.prev = NULL;
     KeypadTask = KeypadTaskTMP;
 
-    // EKG TCB
-    TCB EKGTaskTMP;
-    EKGTaskTMP.taskFuncPtr = &EKGDataFunc
-    EKGTaskTMP.taskDataPtr = &dataForEKG;
-    EKGTaskTMP.next = NULL;
-    EKGTaskTMP.prev = NULL;
-    EKGTask = EKGTaskTMP;
+    // EKG Capture TCB
+    TCB EKGCaptureTaskTMP;
+    EKGCaptureTaskTMP.taskFuncPtr = &EKGCaptureDataFunc;
+    EKGCaptureTaskTMP.taskDataPtr = &dataForEKG;
+    EKGCaptureTaskTMP.next = NULL;
+    EKGCaptureTaskTMP.prev = NULL;
+    EKGCaptureTask = EKGCaptureTaskTMP;
+
+    // EKG Process TCB
+    TCB EKGProcessTaskTMP;
+    EKGProcessTaskTMP.taskFuncPtr = &EKGProcessDataFunc;
+    EKGProcessTaskTMP.taskDataPtr = &dataForEKG;
+    EKGProcessTaskTMP.next = NULL;
+    EKGProcessTaskTMP.prev = NULL;
+    EKGProcessTask = EKGProcessTaskTMP;
 
     // NULL TCB
     TCB NullTaskTMP;
