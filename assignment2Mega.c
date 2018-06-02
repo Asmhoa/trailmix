@@ -157,7 +157,7 @@ const int sizeBuf = 8;
 
     // TFT Keypad
     unsigned short functionSelect = 0,
-        measurementSelection = 4, alarmAcknowledge = 0;
+        measurementSelection = 5, alarmAcknowledge = 0;
 
     /* INITIALIZATION - MAKE TASK BLOCK STRUCTURE */
     struct TaskStruct {
@@ -183,7 +183,6 @@ const int sizeBuf = 8;
         unsigned short* measurementSelectionPtr;
     }; typedef struct DataForMeasureStruct MeasureTaskData;
 
-    // TODO: update compute data struct initialization
     struct DataForComputeStruct {
         unsigned int* temperatureRawPtr;
         unsigned int* bloodPressRawPtr;
@@ -200,7 +199,6 @@ const int sizeBuf = 8;
         unsigned short* measurementSelectionPtr;
     }; typedef struct DataForComputeStruct ComputeTaskData;
 
-    // TODO: update display data struct initialization
     struct DataForDisplayStruct {
         double* temperatureCorrectedPtr;
         double* bloodPressCorrectedPtr;
@@ -356,7 +354,6 @@ void EKGCaptureDataFunc(void* data) {
 
 void EKGProcessDataFunc(void* data) {
 
-    // TODO: Actually use data struct?
     EKGTaskData* dataToMeasure = (EKGTaskData*)data;
     EKGTaskData dataStruct = *dataToMeasure;
 
@@ -459,6 +456,7 @@ void measureDataFunc(void* data) {
             break;
         case 4:
             // TODO: Run EKG TCB?? Or should Measurement also have the power to request for EKG reading
+            addFlags[6] = 1;
             // currEKG =
         case 5:
             requestMessage("M", "T", String(currTemp));
@@ -482,6 +480,7 @@ void measureDataFunc(void* data) {
             prMeasured = incomingData;
             delay(20);
             // TODO: Run EKG TCB?? Or should Measurement also have the power to request for EKG reading
+            addFlags[6] = 1;
             // currEKG = 
             delay(20);
             break;
