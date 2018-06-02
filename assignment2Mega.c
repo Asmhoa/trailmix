@@ -10,6 +10,8 @@
 #include <TimerThree.h> // SYSTEM TICK
 #include <arduinoFFT.h> //
 
+arduinoFFT FFT = arduinoFFT();
+
 /* SERIAL COMMUNICATIONS CONSTANT */
 #define START_MESSAGE '>'
 #define END_TERM ','
@@ -138,7 +140,7 @@ const int sizeBuf = 8;
         bpOutOfRange2 = 0,
         tempOutOfRange = 0,
         pulseOutOfRange = 0,
-        rrOutOfRange = 0;
+        rrOutOfRange = 0,
             // EKG: out of range
         EKGOutOfRange = 0;
 
@@ -150,9 +152,9 @@ const int sizeBuf = 8;
         rrLow = false,
         battLow = false,
         state = false,
-        dismiss = false;
+        dismiss = false,
             // EKG: too high anfd too low
-        EKGLow = false;
+        EKGLow = false,
         EKGHigh = false;
 
     // TFT Keypad
@@ -322,16 +324,24 @@ void parseMessage() {
     }
 }
 
-// Parses EKG Return Message (256 element array that looks like : 2, 3, 4, 5, 1,)
-void parseEKGArray() {
+
+void EKGCaptureDataFunc(void* data) {
     EKGTaskData* dataToMeasure = (EKGTaskData*)data;
     EKGTaskData dataStruct = *dataToMeasure;
 
-    while(0 == Serial1.available()) {
+    // Request EKG measurement
+    requestMessage("M", "E", "");
+
+    // Now set the flag to run EKG Process
+    addFlags[7] = 1;
+
+    // Parse EKG return message. Fetch data for buffer, get all 256.
+    while (0 == Serial1.available()) {
         // It freezes the system till the UNO responds
     }
     int i = 0;
-    while(Serial1.available() > 0) {
+    // TODO: What if this clashes with counterUpdate sending a U to uno every half a second? 
+    while (Serial1.available() > 0) {
         delay(20);
         if(i < EKG_SAMPLES) {
             *(dataStruct.EKGRawBufPtr + i) = Serial1.parseInt();
@@ -343,22 +353,13 @@ void parseEKGArray() {
     }
 }
 
-void EKGCaptureDataFunc(void* data) {
-    // Request EKG measurement
-    requestMessage("M", "E", "");
-    // Parse EKG return message. Fetch data for buffer, get all 256.
-    parseEKGArray();
-    // Now set the flag to run EKG Process
-    addFlags[7] = 1;
-}
-
 void EKGProcessDataFunc(void* data) {
 
     EKGTaskData* dataToMeasure = (EKGTaskData*)data;
     EKGTaskData dataStruct = *dataToMeasure;
 
     unsigned int EKGFreqBufTemp[16];
-    for(i = 0; i < 16; i++) {
+    for (int i = 0; i < 16; i++) {
         EKGFreqBufTemp[i] = *(dataStruct.EKGFreqBufPtr + i);
     }
 
@@ -371,19 +372,19 @@ void EKGProcessDataFunc(void* data) {
         vReal[i] = *(dataStruct.EKGRawBufPtr + i);
         vImag[i] = 0;
     }
-    FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-    FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
-    FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
-    double peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
+    FFT.Windowing(vReal, EKG_SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+    FFT.Compute(vReal, vImag, EKG_SAMPLES, FFT_FORWARD);
+    FFT.ComplexToMagnitude(vReal, vImag, EKG_SAMPLES);
+    double peak = FFT.MajorPeak(vReal, EKG_SAMPLES, SAMPLING_FREQUENCY);
 
     // Store this in the EKGFreqBuf, keep a 16-element buffer    
-    for(i = 15; i > 0; i--) {
+    for (int i = 15; i > 0; i--) {
         //EKGFreqBuf[i] = EKGFreqBuf[i - 1];
-        EKGRawBufTemp[i] = EKGRawBufTemp[i-1];
+        EKGFreqBufTemp[i] = EKGFreqBufTemp[i-1];
     }
-    EKGRawBufTemp[0] = (int) peak;
-    for(i = 0; i < 16; i++) {
-        *(dataStruct.EKGRawPtr + i) = EKGRawBufTemp[i];
+    EKGFreqBufTemp[0] = (int) peak;
+    for (int i = 0; i < 16; i++) {
+        *(dataStruct.EKGFreqBufPtr + i) = EKGFreqBufTemp[i];
     }
 }
 
@@ -1561,7 +1562,7 @@ void runTask(int taskID, bool insertTask) {
                 deleteNode(&EKGCaptureTask);
             }
         break;
-        case 5:
+        case 7:
             if(insertTask) {
                 appendAtEnd(&EKGProcessTask);
             } else {
