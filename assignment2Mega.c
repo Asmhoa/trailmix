@@ -17,6 +17,7 @@ arduinoFFT FFT = arduinoFFT();
 #define END_TERM ','
 #define END_MESSAGE '<'
 #define EKG_SAMPLES 256
+#define SAMPLING_FREQUENCY 7566
 
 double unoCounter = 0.5;
 int dismissCounter = 0;
