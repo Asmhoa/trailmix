@@ -1312,7 +1312,7 @@ void setup(void) {
     // EKG
     EKGTaskData dataForEKGTMP;
     dataForEKGTMP.EKGRawBufPtr = EKGRawBuf;
-    dataForEKGTMP.tEKGFreqBufPtr = EKGFreqBuf;
+    dataForEKGTMP.EKGFreqBufPtr = EKGFreqBuf;
     dataForEKG = dataForEKGTMP;
     
     // Assign values in TCB's
