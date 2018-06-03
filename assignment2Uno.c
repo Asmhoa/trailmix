@@ -102,6 +102,7 @@ void respondMessage(String taskID, String funcToRun, String data) {
         + data + END_MESSAGE);
 }
 
+
 void parseMessage() {
     
     //  read incoming byte from the mega
@@ -208,8 +209,11 @@ void loop() {
                     break;
                 case 'E': // EKG MEASUREMENT
                     EKGMeasurement();
-                    respondMessage("M", "E", EKGUnoMeasurements);
+                    // respondMessage("M", "E", EKGUnoMeasurements);
+                    // respondMessage("M", "E", "77, 100, 60");
+                    // Serial.println(EKGUnoMeasurements);
                     EKGUnoMeasurements = ""; // Once sent, reset to empty
+                    // Serial.println("EMPTIED");
                     break;
             }
             
@@ -256,7 +260,7 @@ void loop() {
             if (debounceButtonState == HIGH) {
                 debounceLedState = !debounceLedState;
                 // Set Cuff Switch Boolean: Increment or Decrement mode
-                // Serial.println("Cuff Switched");
+                Serial.println("Cuff Switched");
                 increOrDecre = !increOrDecre;
             }
             }
@@ -367,16 +371,6 @@ void loop() {
     // END================================= RESPIRATION RATE (2, FN GEN) =======================
 
     // START=============================== EKG (3, FN GEN) ====================================
-        for (int i = 0; i < EKG_SAMPLES; i++) {
-
-            microseconds = micros();    //Overflows after around 70 minutes!
-
-            EKGUnoMeasurements += String(analogRead(3) / 12) + ",";   
-
-            // 
-            while (micros() < (microseconds + sampling_period_us)) {
-            }
-        }
         
     // END================================= EKG (3, FN GEN) ====================================
 
@@ -384,16 +378,18 @@ void loop() {
 
 // EKG Measurement
 void EKGMeasurement() {
-    for (int i = 0; i < EKG_SAMPLES; i++) {
+    // for (int i = 0; i < EKG_SAMPLES - 1; i++) {
 
-        microseconds = micros();    //Overflows after around 70 minutes!
+    //     microseconds = micros();    //Overflows after around 70 minutes!
 
-        EKGUnoMeasurements += String(analogRead(3) / 12) + ",";   
-
-        // 
-        while (micros() < (microseconds + sampling_period_us)) {
-        }
-    }
+    //     // EKGUnoMeasurements += String(analogRead(3) / 12) + ",";           // 
+    //     Serial.println(String(analogRead(3) / 12));   
+        
+    //     while (micros() < (microseconds + sampling_period_us)) {
+    //     }
+    // }
+    // EKGUnoMeasurements += String(analogRead(3) / 12);  
+    Serial.println(String(analogRead(3) / 12));   
 }
 
 // Runs every time there is a rising edge? Pin interrupt

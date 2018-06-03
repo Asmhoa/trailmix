@@ -327,34 +327,48 @@ void parseMessage() {
 
 
 void EKGCaptureDataFunc(void* data) {
+    Serial.println("EKG CAPTURE STARTED");
+
     EKGTaskData* dataToMeasure = (EKGTaskData*)data;
     EKGTaskData dataStruct = *dataToMeasure;
 
-    // Request EKG measurement
-    requestMessage("M", "E", "");
+    // // Request EKG measurement
+    // requestMessage("M", "E", "0");
 
-    // Now set the flag to run EKG Process
-    addFlags[7] = 1;
-
-    // Parse EKG return message. Fetch data for buffer, get all 256.
-    while (0 == Serial1.available()) {
-        // It freezes the system till the UNO responds
-    }
-    int i = 0;
+    // // Parse EKG return message. Fetch data for buffer, get all 256.
+    // while (0 == Serial1.available()) {
+    //     // It freezes the system till the UNO responds
+        
+    // }
+    int parsedData = 500;
     // TODO: What if this clashes with counterUpdate sending a U to uno every half a second? 
-    while (Serial1.available() > 0) {
-        delay(20);
-        if(i < EKG_SAMPLES) {
-            *(dataStruct.EKGRawBufPtr + i) = Serial1.parseInt();
-            //EKGRawBuf[i] = Serial1.parseInt();
-            Serial1.read();
-            i++;
-        }
-        // Serial.println(incomingData);
+    // while (Serial1.available() > 0) {
+    for(int i = 0; i < EKG_SAMPLES; i++) {
+        // delay(20);
+        // Request EKG measurement
+        requestMessage("M", "E", "0");
+        parsedData = Serial1.parseInt();
+        *(dataStruct.EKGRawBufPtr + i) = parsedData;
+        // Serial.println(parsedData);
+        //EKGRawBuf[i] = Serial1.parseInt();
+        Serial1.read();
     }
+        // Serial.println(incomingData);
+    Serial.print("EKG RAW BUFF: ["); 
+    for(int i = 0; i < EKG_SAMPLES; i++) {
+        Serial.print(*(dataStruct.EKGRawBufPtr + i)); Serial.print(", ");
+        // TODO: SAMPLING FREQUENCY
+    }
+    Serial.println("]");
+    Serial.println("EKG CAPTURE ENDED");
+    // Now set the flag to run EKG Process
+    // addFlags[7] = 1;
+    (*EKGProcessTask.taskFuncPtr)(EKGProcessTask.taskDataPtr);
+
 }
 
 void EKGProcessDataFunc(void* data) {
+    Serial.println("EKG Process STARTED");
 
     EKGTaskData* dataToMeasure = (EKGTaskData*)data;
     EKGTaskData dataStruct = *dataToMeasure;
@@ -368,15 +382,20 @@ void EKGProcessDataFunc(void* data) {
     double vReal[EKG_SAMPLES];
     double vImag[EKG_SAMPLES];
     // Transferring analog reader values to vReal for FFT
+    Serial.print("Vreal: [");
     for (int i = 0; i < EKG_SAMPLES; i++) {
         //vReal[i] = EKGRawBuf[i];
         vReal[i] = *(dataStruct.EKGRawBufPtr + i);
         vImag[i] = 0;
+        Serial.print(vReal[i]); Serial.print(", ");
     }
+    Serial.println("]");
+    
     FFT.Windowing(vReal, EKG_SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
     FFT.Compute(vReal, vImag, EKG_SAMPLES, FFT_FORWARD);
     FFT.ComplexToMagnitude(vReal, vImag, EKG_SAMPLES);
     double peak = FFT.MajorPeak(vReal, EKG_SAMPLES, SAMPLING_FREQUENCY);
+    Serial.print("PEAK: "); Serial.println(peak);
 
     // Store this in the EKGFreqBuf, keep a 16-element buffer    
     for (int i = 15; i > 0; i--) {
@@ -384,15 +403,19 @@ void EKGProcessDataFunc(void* data) {
         EKGFreqBufTemp[i] = EKGFreqBufTemp[i-1];
     }
     EKGFreqBufTemp[0] = (int) peak;
+    Serial.print("FREQ BUF: [");
     for (int i = 0; i < 16; i++) {
         *(dataStruct.EKGFreqBufPtr + i) = EKGFreqBufTemp[i];
+        Serial.print(EKGFreqBufTemp[i]); Serial.print(", ");
     }
+    Serial.println("]");
 }
 
 void measureDataFunc(void* data) {
     // Dereference data to use it
-    // Serial.println("Measure task started");
+    //  Serial.println("Measure task started");
     // delay(20);
+
     MeasureTaskData* dataToMeasure = (MeasureTaskData*)data;
     MeasureTaskData dataStruct = *dataToMeasure;
     
@@ -457,8 +480,10 @@ void measureDataFunc(void* data) {
             delay(20);
             break;
         case 4:
+            Serial.println("CASE 4");
             // TODO: Run EKG TCB?? Or should Measurement also have the power to request for EKG reading
             addFlags[6] = 1;
+            // (*currPointer->taskFuncPtr)(currPointer->taskDataPtr);
             // currEKG =
         case 5:
             requestMessage("M", "T", String(currTemp));
@@ -484,6 +509,7 @@ void measureDataFunc(void* data) {
             // TODO: Run EKG TCB?? Or should Measurement also have the power to request for EKG reading
             addFlags[6] = 1;
             // currEKG = 
+            
             delay(20);
             break;
     }
@@ -562,6 +588,7 @@ void measureDataFunc(void* data) {
 }
 
 void computeDataFunc(void* x) {
+
     // Serial.println("!Compute task started");
     // Dereferencing void pointer to ComputeStruct
     ComputeTaskData* data = (ComputeTaskData*)x;
@@ -646,6 +673,8 @@ void annunciateDataFunc(void* x) {
     tft.fillScreen(BLACK);
     tft.setCursor(0, 0);
 
+    Serial.print("ANNUNCIATE measurementSelection: "); Serial.println(measurementSelection);
+
     switch(measurementSelection) {
         case 0: // Temperature
             tempOutOfRange ? tft.setTextColor(ORANGE) : tft.setTextColor(GREEN);
@@ -688,6 +717,7 @@ void annunciateDataFunc(void* x) {
             //     tft.setTextColor(RED); // Add acknowledgement event??
             // }
             tft.println("EKG: " + (String)*dataStruct.EKGFreqBufPtr + " HZ");
+            break;
         case 5: // Everything
             mode = 'A';
 
@@ -747,8 +777,10 @@ void annunciateDataFunc(void* x) {
         addFlags[3] = 1;
         addFlags[4] = 1;
         addFlags[5] = 1;
-        addFlags[6] = 0;
-        addFlags[7] = 0;
+        // addFlags[6] = 0;
+        // addFlags[7] = 0;
+
+        Serial.println("mode A");
 
         // Back Button
         backButton[0].initButton(&tft, 125, 265, 180, 35, ILI9341_WHITE, ILI9341_RED, ILI9341_WHITE, "MAIN", 2);
@@ -890,6 +922,8 @@ void annunciateDataFunc(void* x) {
     int normalizedEKG = *dataStruct.EKGFreqBufPtr;
     if(normalizedEKG < 35 || normalizedEKG > 3750) {
         EKGOutOfRange = 1;
+    } else {
+        EKGOutOfRange = 0;
     }
 
     Serial.println("Annunciate ended");
@@ -954,6 +988,7 @@ void KeypadDataFunc(void* x) {
                 tft.setCursor(0,0);
                 tft.fillScreen(BLACK);
                 Serial.println("BACK BUTTON IS PRESSED");
+                
                 mode = 'B';
                 measurementSelection = 6; // Changed from 5 to 6
 
@@ -966,6 +1001,7 @@ void KeypadDataFunc(void* x) {
                 addFlags[5] = 1;
                 addFlags[6] = 0;
                 addFlags[7] = 0;
+
             }
 
             if (dismissButton[0].contains(p.x, p.y)) {
@@ -998,6 +1034,7 @@ void KeypadDataFunc(void* x) {
         addFlags[5] = 1;
         addFlags[6] = 0;
         addFlags[7] = 0;
+        Serial.println("mode B");
     } else {
         bool keepSensing = true;
         while (keepSensing) {
@@ -1058,6 +1095,8 @@ void KeypadDataFunc(void* x) {
 
 void menuView() {
     // Serial.println("Menu View started");
+    Serial.print("menuview measurement selection: ");
+    Serial.println(measurementSelection);
     measureSelectButtons[0].initButton(&tft, 125, 40, 180, 35, ILI9341_WHITE, ILI9341_BLUE, ILI9341_WHITE, "Temp", 2);
     measureSelectButtons[0].drawButton();
 
@@ -1087,7 +1126,8 @@ void menuView() {
         if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
             // scale from 0->1023 to tft.width
             p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-            p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+            // p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+            p.y = (map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
         }
 
         for (uint8_t b = 0; b < 5; b++) {
@@ -1098,7 +1138,9 @@ void menuView() {
                 tft.fillScreen(BLACK);
                 addFlags[0] = 1;
                 addFlags[1] = 1;
-                if(0 == b) {
+                Serial.print(b);
+                if(4 == b) {
+                    Serial.println("Just pressed");
                     addFlags[6] = 1;
                 }
                 staySensingPress = false;
@@ -1111,13 +1153,13 @@ void menuView() {
             // TODO: FIX THE FLAGS ARRAY
             if (measureSelectButtons[b].justPressed()) {
                 mode = 'A';
-                if (4 == b) { // Temperature
+                if (0 == b) { // Temperature
                     staySensingPress = false;
                     measurementSelection = 0;
                     addFlags[3] = 1;
                     // Go to Annunciate
 
-                } else if (3 == b) { // BP
+                } else if (1 == b) { // BP
                     staySensingPress = false;
                     measurementSelection = 1;
                     addFlags[3] = 1;
@@ -1129,16 +1171,17 @@ void menuView() {
                     addFlags[3] = 1;
                     // Go to Annunciate
 
-                } else if (1 == b) { // respiration
+                } else if (3 == b) { // respiration
                     measurementSelection = 3;
                     staySensingPress = false;
                     addFlags[3] = 1;
                     // Go to Annunciate
-                } else if (0 == b) { // EKG
+                } else if (4 == b) { // EKG
                     measurementSelection = 4;
                     staySensingPress = false;
                     addFlags[3] = 1;
                 }
+                measureSelectButtons[b].press(false);
             }
         }
     }
@@ -1426,7 +1469,7 @@ void scheduler() {
     // FLAGS DEBUGGER
     if(0 == (int)unoCounter % 2) {
         Serial.print("[");
-        for(int i = 0; i < 6; i++) {
+        for(int i = 0; i < 8; i++) {
             Serial.print(addFlags[i]); Serial.print(" ");
         }         
         Serial.println("]");
@@ -1455,16 +1498,25 @@ void scheduler() {
         }
     }
 
-    int index;
-    if(2 == index || 3 == index || 6 == index || 7 == index) {
-        if(addFlags[index]) {
-            runTask(index, true); // insert task
-            delay(20);
-            addFlags[index] = 0;
-            removeFlags[index] = 1;
-        }
-    }
     
+    int index = 8;
+
+    if(addFlags[2]) {
+        index = 2;
+    } else if(addFlags[3]) {
+        index = 3;
+    } else if(addFlags[6]) {
+        index = 6;
+    } else if(addFlags[7]) {
+        index = 7;
+    }
+
+    if(index < 8) {
+        runTask(index, true); // insert task
+        delay(20);
+        addFlags[index] = 0;
+        removeFlags[index] = 1;
+    }
 
     currPointer = linkedListHead;
     while(currPointer != NULL) {
