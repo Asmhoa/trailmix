@@ -3,6 +3,7 @@
         "*.sqlp": "sql",
         "elegoo_tftlcd.h": "c",
         "touchscreen.h": "c",
-        "cstddef": "c"
+        "cstddef": "c",
+        "stdbool.h": "c"
     }
 }
