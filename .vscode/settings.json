@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.sqlp": "sql",
+        "elegoo_tftlcd.h": "c",
+        "touchscreen.h": "c",
+        "cstddef": "c"
+    }
+}
