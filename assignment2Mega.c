@@ -19,6 +19,7 @@
 char requestingTaskID = 0;
 char requestedFunction = 0;
 int incomingData = 0;
+char previousChar = '0';
 
 /* SECONDARY COUNTER FOR PERIPHERAL DEVICE */
 double unoCounter = 0.5;
@@ -34,6 +35,7 @@ int dismissCounter = 0;
 uint16_t identifier = 0;
 const int sizeBuf = 8;
 unsigned int* warningHistory[7] = {0};
+unsigned int serialInMode = 0; //0: receiving commands, 1: enter was pressed
 
 arduinoFFT FFT = arduinoFFT();
 
@@ -1662,42 +1664,70 @@ void deleteNode(TCB* del) {
 
 void serialEvent() {
     char inChar = '0';
-    if(Serial.available() > 0) {
-        // get the new byte:
-        inChar = (char)Serial.read();
-        Serial.println(inChar); // Type it out so user can see it
-    }
-
-    while(Serial.available() > 0) {
-        Serial.read(); // Burn the other reads till the next event
+    while(0 == serialInMode) {
+        if (Serial.available() > 0) {
+            // get the new byte:
+            inChar = (char)Serial.read(); 
+            if('\r' == inChar) {
+                serialInMode = 1;
+            } else if ('\r' != inChar && '\n' != inChar) {
+                Serial.print(inChar); // Serial.print("\r"); // Type it out so user can see it
+                previousChar = inChar; // Keep track of char before \n
+            }
+        } delay(16);
     }
 
     // See what the command is:
-    if(!firstRunComplete && 'I' != inChar) {
-        Serial.println("Initialize the system first with the I command!");
-    } else if ('I' == inChar) { // Initialize
-        Serial.print("Patient's name: ");
-        char pName[25];
-        Serial.readBytesUntil("\n", pName, 25);
-        patientName = String(pName);
-        Serial.println(patientName);
-        Serial.print("Doctor's name: ");
-        char dName[25];
-        Serial.readBytesUntil("\n", dName, 25);
-        doctorName = String(dName);
-        Serial.println(doctorName);
+    if(!firstRunComplete && 'I' != previousChar) {
+        Serial.println("\nInitialize the system first with the I command!");
+        serialInMode = 0;
+    } else if ('I' == previousChar) { // Initialize
+        patientName = "";
+        doctorName = "";
+        Serial.print("\nPatient's name: ");
+        while(1 == serialInMode) {
+            if(Serial.available() > 0) {
+                inChar = (char)Serial.read();
+                Serial.print(inChar); // Type it out so user can see it
+                if('\n' == inChar || '\r' == inChar) {
+                    serialInMode = 2;
+                } else {
+                    patientName.concat(inChar);
+                }
+            }
+        }
+        Serial.print("\nDoctor's name: ");
+        while(2 == serialInMode) {
+            if(Serial.available() > 0) {
+                inChar = (char)Serial.read();
+                Serial.print(inChar); // Type it out so user can see it
+                if('\n' == inChar || '\r' == inChar) {
+                    serialInMode = 0;
+                } else {
+                    doctorName.concat(inChar);
+                }
+            }
+        }
         firstRunComplete = true;
     } else {
-        switch(inChar) {
+        serialInMode = 0;
+        switch(previousChar) {
+            Serial.flush();
             case 'S': // Start measurements, enable all interrupts
+                break;
             case 'P': // Stop measurements, disable data collection interrupts
+                break;
             case 'D': // Enable or disable local display
+                break;
             case 'M': // most recent measurement data
+                break;
             case 'W': // Most recent warning data
+                break;
             default:
                 Serial.println('E');
                 break;
         }
+        previousChar = '0';
     }
 }
 
@@ -1712,6 +1742,7 @@ void remoteDisplay(void* x) {
     RemoteCommTaskData* data = (RemoteCommTaskData*)x;
     RemoteCommTaskData dataStruct = *data;
 
+    Serial.flush();
     Serial.write(27);       // ESC command
     Serial.print("[2J");    // clear screen command
     Serial.write(27);
