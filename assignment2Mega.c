@@ -162,7 +162,10 @@ bool bpHigh = false,
     state = false,
     dismiss = false,
     EKGLow = false,
-    EKGHigh = false;
+    EKGHigh = false,
+    localDisplayEnabled = true,
+    remoteDisplayOn = true,
+    remoteWarningOn = false;
 
 // TFT Keypad
 unsigned short functionSelect = 0,
@@ -1417,66 +1420,69 @@ void scheduler() {
     //     }         
     //     Serial.println("]");
     // }
-
-    if((unoCounter - catchUpCounter) > 5.0) {
-        catchUpCounter = unoCounter;
-        addFlags[0] = 1;
-        // addFlags[1] = 1; not needed because measure does it
-        addFlags[4] = 1;
-        if(firstRunComplete) {
-            addFlags[8] = 1;
+    if(localDisplayEnabled) {
+        if((unoCounter - catchUpCounter) > 5.0) {
+            catchUpCounter = unoCounter;
+            addFlags[0] = 1;
+            // addFlags[1] = 1; not needed because measure does it
+            addFlags[4] = 1;
+            if(firstRunComplete && remoteDisplayOn) {
+                addFlags[8] = 1;
+                remoteDisplayOn = false;
+            }
+            if('A' == mode) {
+                addFlags[3] = 1;
+            }
         }
-        if('A' == mode) {
-            addFlags[3] = 1;
+
+        if(unoCounter > 5 && 0 == (int)unoCounter % 2) {
+            addFlags[5] = 1;
         }
-    }
 
-    if(unoCounter > 5 && 0 == (int)unoCounter % 2) {
-        addFlags[5] = 1;
-    }
-
-    if(0 == (int)unoCounter % (60 * 60 * 8)) {
-        // warningHistory = {0};
-    }
-
-    for(int i = 0; i < 9; i++) { // Add all the tasks
-        if(addFlags[i]) {
-            runTask(i, true); // insert task
-            addFlags[i] = 0;  // Confirm added
-            removeFlags[i] = 1; // Schedule removal when done
+        if(0 == (int)unoCounter % (60 * 60 * 8)) {
+            // warningHistory = {0};
         }
-    }
 
-    currPointer = linkedListHead;
-    while(currPointer != NULL) {
-        // if(currPointer == &MeasureTask) {
-        //     Serial.println("currPointer == measureTask");
-        // } else if (currPointer == &ComputeTask) {
-        //     Serial.println("currPointer == computeTask");
-        // }  else if (currPointer == &AnnunciateTask) {
-        //     Serial.println("currPointer == annunciateTask");
-        // } else if(currPointer == &DisplayTask) {
-        //     Serial.println("currPointer == displayTask");
-        // } else if (currPointer == &StatusTask) {
-        //     Serial.println("currPointer == statusTask");
-        // } else if (currPointer == &KeypadTask) {
-        //     Serial.println("currPointer == keypadTask");
-        // } else if (currPointer == &EKGCaptureTask) {
-        //     Serial.println("currPointer == EKGCaptureTask");
-        // } else if (currPointer == &EKGProcessTask) {
-        //     Serial.println("currPointer == EKGProcessTask");
-        // }
-       // currPointer->taskFuncPtr(currPointer->taskDataPtr);
-        (*currPointer->taskFuncPtr)(currPointer->taskDataPtr);
-        currPointer = currPointer->next; // moves current pointer to the next task
-    }
-
-    for(int i = 0; i < 9; i++) { // checks remove task flags
-        if(removeFlags[i]) {
-            runTask(i, false); // remove task
-            removeFlags[i] = 0;
+        for(int i = 0; i < 9; i++) { // Add all the tasks
+            if(addFlags[i]) {
+                runTask(i, true); // insert task
+                addFlags[i] = 0;  // Confirm added
+                removeFlags[i] = 1; // Schedule removal when done
+            }
         }
-    }
+
+        currPointer = linkedListHead;
+        while(currPointer != NULL) {
+            // if(currPointer == &MeasureTask) {
+            //     Serial.println("currPointer == measureTask");
+            // } else if (currPointer == &ComputeTask) {
+            //     Serial.println("currPointer == computeTask");
+            // }  else if (currPointer == &AnnunciateTask) {
+            //     Serial.println("currPointer == annunciateTask");
+            // } else if(currPointer == &DisplayTask) {
+            //     Serial.println("currPointer == displayTask");
+            // } else if (currPointer == &StatusTask) {
+            //     Serial.println("currPointer == statusTask");
+            // } else if (currPointer == &KeypadTask) {
+            //     Serial.println("currPointer == keypadTask");
+            // } else if (currPointer == &EKGCaptureTask) {
+            //     Serial.println("currPointer == EKGCaptureTask");
+            // } else if (currPointer == &EKGProcessTask) {
+            //     Serial.println("currPointer == EKGProcessTask");
+            // }
+        // currPointer->taskFuncPtr(currPointer->taskDataPtr);
+            (*currPointer->taskFuncPtr)(currPointer->taskDataPtr);
+            currPointer = currPointer->next; // moves current pointer to the next task
+        }
+
+        for(int i = 0; i < 9; i++) { // checks remove task flags
+            if(removeFlags[i]) {
+                runTask(i, false); // remove task
+                removeFlags[i] = 0;
+            }
+        }
+    } 
+   
 }
 
 void runTask(int taskID, bool insertTask) {
@@ -1714,14 +1720,24 @@ void serialEvent() {
         switch(previousChar) {
             Serial.flush();
             case 'S': // Start measurements, enable all interrupts
+                addFlags[0] = 1;
                 break;
             case 'P': // Stop measurements, disable data collection interrupts
+                removeFlags[0] = 1;
                 break;
             case 'D': // Enable or disable local display
+                localDisplayEnabled = !localDisplayEnabled;
+                if(!localDisplayEnabled) {
+                    tft.fillScreen(BLACK);
+                    tft.setCursor(0, 0);
+                }
                 break;
             case 'M': // most recent measurement data
+                remoteDisplayOn = true;
                 break;
             case 'W': // Most recent warning data
+                remoteWarningOn = true;
+                remoteDisplayOn = true;
                 break;
             default:
                 Serial.println('E');
@@ -1815,40 +1831,41 @@ void remoteDisplay(void* x) {
     Serial.println("\e[4m" + productName + "\e[m");
     Serial.print("\e[4mPatient\e[m: "); Serial.println(*(dataStruct.patientNamePtr));
     Serial.print("\e[4mDoctor\e[m: "); Serial.println(*(dataStruct.doctorNamePtr));
-    Serial.print("Temperature:\t"); if(tempOutOfRange) {
+    Serial.print("Temperature:\t"); if(tempOutOfRange && remoteWarningOn) {
         Serial.print("\e[5m" + (String)*dataStruct.temperatureCorrectedPtr + "\e[m");
     } else {
         Serial.print("\e[0;32m" + (String)*dataStruct.temperatureCorrectedPtr + "\e[m");
     } Serial.println(" C");
-    Serial.print("Systolic Pressure:\t"); if(bpOutOfRange) {
+    Serial.print("Systolic Pressure:\t"); if(bpOutOfRange && remoteWarningOn) {
         Serial.print("\e[5m" + (String)*dataStruct.bloodPressCorrectedPtr  + "\e[m");           
     } else {
         Serial.print("\e[0;32m" + (String)*dataStruct.bloodPressCorrectedPtr  + "\e[m");
     } Serial.println(" mm Hg");
-    Serial.print("Diastolic Pressure:\t"); if(bpOutOfRange2) {
+    Serial.print("Diastolic Pressure:\t"); if(bpOutOfRange2 && remoteWarningOn) {
         Serial.print("\e[5m" + (String)*(dataStruct.bloodPressCorrectedPtr + 8) + "\e[m");
     } else {
         Serial.print("\e[0;32m" + (String)*(dataStruct.bloodPressCorrectedPtr + 8) + "\e[m");
     } Serial.println(" mm Hg");
-    Serial.print("Pulse Rate:\t"); if(pulseOutOfRange) {
+    Serial.print("Pulse Rate:\t"); if(pulseOutOfRange && remoteWarningOn) {
         Serial.print("\e[5m" + (String)*dataStruct.prCorrectedPtr + "\e[m");
     } else {
         Serial.print("\e[0;32m" + (String)*dataStruct.prCorrectedPtr + "\e[m");
     } Serial.println(" BPM");
-    Serial.print("Respiration Rate:\t"); if(rrOutOfRange) {
+    Serial.print("Respiration Rate:\t"); if(rrOutOfRange && remoteWarningOn) {
         Serial.print("\e[5m" + (String)*dataStruct.respirationRateCorrectedPtr + "\e[m");
     } else {
         Serial.print("\e[0;32m" + (String)*dataStruct.respirationRateCorrectedPtr + "\e[m");
     } Serial.println(" BPM");
-    Serial.print("EKG:\t"); if(EKGOutOfRange) {
+    Serial.print("EKG:\t"); if(EKGOutOfRange && remoteWarningOn) {
         Serial.print("\e[5m" + (String)*dataStruct.EKGFreqBufPtr + "\e[m");
     } else {
         Serial.print("\e[0;32m" + (String)*dataStruct.EKGFreqBufPtr + "\e[m");
     } Serial.println(" Hz");
     Serial.print("Battery:\t"); 
-    if(battLow) {
+    if(battLow && remoteWarningOn) {
         Serial.println("\e[5m" + (String)*dataStruct.batteryStatePtr + "\e[m");
     } else {
             Serial.println("\e[0;32m" + (String)*dataStruct.batteryStatePtr + "\e[m");
-    }
+    } 
+    remoteWarningOn = false;
 }
