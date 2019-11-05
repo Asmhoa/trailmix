@@ -7,7 +7,6 @@ int pulseRate;
 float voltageReading;
 
 void setup() {
-  // put your setup code here, to run once:
   // Fields for readFromFnGen
   sensorPin = A0;    // select the input pin for the potentiometer
   pulseCount = 0;
@@ -20,14 +19,11 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   readFromFnGen();  
-  //Serial.println(voltageReading);
   Serial.println(pulseCount);
 }
 
 
-// TODO: Write a function that reads 0 - 3.3v signals from function generator
 // Function generator to generate a 0-3.3v squarewave. Attach function generator
 // to A0 pin on Uno with a GPIO
 void readFromFnGen() {
