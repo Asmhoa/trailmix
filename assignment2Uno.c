@@ -1,6 +1,5 @@
-// Assignment 2
 // Code for Uno
-// Eddy, Kyuri, Amol
+// Amol, Eddy, Kyuri
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -348,6 +347,7 @@ void loop() {
             sysTaken = false;
             diaTaken = false;
         }
+    
     // END================================= BLOOD PRESSURE =====================================
 
     // START=============================== PULSE RATE (2, FN GEN) =============================
