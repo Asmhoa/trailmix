@@ -1,6 +1,5 @@
-// Assignment 5
 // Code for ATMega
-// Eddy, Kyuri, Amol
+// Amol, Eddy, Kyuri
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -350,17 +349,8 @@ void EKGCaptureDataFunc(void* data) {
     EKGTaskData* dataToMeasure = (EKGTaskData*)data;
     EKGTaskData dataStruct = *dataToMeasure;
 
-    // // Request EKG measurement
-    // requestMessage("M", "E", "0");
-
-    // // Parse EKG return message. Fetch data for buffer, get all 256.
-    // while (0 == Serial1.available()) {
-    //     // It freezes the system till the UNO responds
-        
-    // }
     int parsedData = 500;
-    // TODO: What if this clashes with counterUpdate sending a U to uno every half a second? 
-    // while (Serial1.available() > 0) {
+    // TODO: What if this clashes with counterUpdate sending a 'U' to uno every half a second? 
     for(int i = 0; i < EKG_SAMPLES; i++) {
         // delay(20);
         // Request EKG measurement
@@ -371,16 +361,7 @@ void EKGCaptureDataFunc(void* data) {
         //EKGRawBuf[i] = Serial1.parseInt();
         Serial1.read();
     }
-        // Serial.println(incomingData);
-    // Serial.print("EKG RAW BUFF: ["); 
-    // for(int i = 0; i < EKG_SAMPLES; i++) {
-    //     Serial.print(*(dataStruct.EKGRawBufPtr + i)); Serial.print(", ");
-    //     // TODO: SAMPLING FREQUENCY
-    // }
-    // Serial.println("]");
-    // Serial.println("EKG CAPTURE ENDED");
-    // // Now set the flag to run EKG Process
-    // addFlags[7] = 1;
+    
     (*EKGProcessTask.taskFuncPtr)(EKGProcessTask.taskDataPtr);
 
 }
@@ -400,33 +381,24 @@ void EKGProcessDataFunc(void* data) {
     double vReal[EKG_SAMPLES];
     double vImag[EKG_SAMPLES];
     // Transferring analog reader values to vReal for FFT
-    // Serial.print("Vreal: [");
     for (int i = 0; i < EKG_SAMPLES; i++) {
-        //vReal[i] = EKGRawBuf[i];
         vReal[i] = *(dataStruct.EKGRawBufPtr + i);
         vImag[i] = 0;
-        // Serial.print(vReal[i]); Serial.print(", ");
     }
-    // Serial.println("]");
     
     FFT.Windowing(vReal, EKG_SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
     FFT.Compute(vReal, vImag, EKG_SAMPLES, FFT_FORWARD);
     FFT.ComplexToMagnitude(vReal, vImag, EKG_SAMPLES);
     double peak = FFT.MajorPeak(vReal, EKG_SAMPLES, SAMPLING_FREQUENCY);
-    // Serial.print("PEAK: "); Serial.println(peak);
 
     // Store this in the EKGFreqBuf, keep a 16-element buffer    
     for (int i = 15; i > 0; i--) {
-        //EKGFreqBuf[i] = EKGFreqBuf[i - 1];
         EKGFreqBufTemp[i] = EKGFreqBufTemp[i-1];
     }
     EKGFreqBufTemp[0] = (int) peak;
-    // Serial.print("FREQ BUF: [");
     for (int i = 0; i < 16; i++) {
         *(dataStruct.EKGFreqBufPtr + i) = EKGFreqBufTemp[i];
-        // Serial.print(EKGFreqBufTemp[i]); Serial.print(", ");
     }
-    // Serial.println("]");
 }
 
 void measureDataFunc(void* data) {
